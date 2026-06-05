@@ -8,6 +8,12 @@ import path from 'path';
 // itself uses vite.config.ts; this file is consumed only by vitest.
 export default defineConfig({
   plugins: [react()],
+  // CHANGE-055 TEST-012: load VITE_* env from the workspace root so
+  // `import.meta.env.VITE_SUPABASE_ANON_KEY` mirrors what the dev server
+  // sees. Without this the anon-client integration test cannot assert
+  // `Bearer ${VITE_SUPABASE_ANON_KEY}` because the supabase-js client
+  // would be constructed with an empty key.
+  envDir: path.resolve(__dirname, '../..'),
   resolve: {
     alias: {
       '@convex': path.resolve(__dirname, '../../convex'),
