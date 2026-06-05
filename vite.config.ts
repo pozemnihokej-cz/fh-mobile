@@ -34,6 +34,15 @@ export default defineConfig(({ mode }) => {
         allow: [path.resolve(__dirname, '../..'), path.resolve(__dirname, '.')],
       },
       proxy: {
+        '/auth/v1': {
+          target: isDocker ? 'http://fh-kong:8000' : 'http://localhost:8000',
+          changeOrigin: true,
+        },
+        '/rest/v1': {
+          target: isDocker ? 'http://fh-supabase-rest:3000' : 'http://localhost:3000',
+          changeOrigin: true,
+          rewrite: (p) => p.replace(/^\/rest\/v1/, ''),
+        },
         '/storage/v1': {
           target: isDocker ? 'http://fh-supabase-storage:5000' : 'http://localhost:5001',
           changeOrigin: true,
