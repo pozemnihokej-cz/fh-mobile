@@ -1,6 +1,6 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
-import { BrowserRouter } from 'react-router-dom';
+import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 import { ConvexProvider, ConvexReactClient } from 'convex/react';
 import { ThemeProvider } from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
@@ -11,6 +11,11 @@ import { initI18n } from '@fh/i18n';
 import { resolveBaseUrl, resolveSiblingUrl } from './lib/runtimeUrls';
 import { supabase } from './lib/supabase';
 import App from './App';
+import TenantPickerPage from './routes/TenantPickerPage';
+import TenantLayout from './routes/TenantLayout';
+import MatchesPage from './routes/MatchesPage';
+import MatchDetailPage from './routes/MatchDetailPage';
+import NotFoundPage from './routes/NotFoundPage';
 
 initI18n();
 
@@ -54,6 +59,13 @@ class ErrorBoundary extends React.Component<
   }
 }
 
+// CHANGE-055 route table:
+//   /                          → tenant picker
+//   /:slug/                    → matches (index redirect to ./matches)
+//   /:slug/matches             → MatchesPage
+//   /:slug/matches/:matchId    → MatchDetailPage
+//   /:slug/*                   → NotFoundPage (tenant resolved, route unknown)
+//   *                          → NotFoundPage (slug-less catchall)
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
     <BrowserRouter>
@@ -65,7 +77,18 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
             apiUrl={resolveBaseUrl(import.meta.env.VITE_API_URL, 'http://localhost:4000')}
           >
             <ConvexProvider client={convex}>
-              <App />
+              <Routes>
+                <Route element={<App />}>
+                  <Route index element={<TenantPickerPage />} />
+                  <Route path=":slug" element={<TenantLayout />}>
+                    <Route index element={<Navigate to="matches" replace />} />
+                    <Route path="matches" element={<MatchesPage />} />
+                    <Route path="matches/:matchId" element={<MatchDetailPage />} />
+                    <Route path="*" element={<NotFoundPage />} />
+                  </Route>
+                  <Route path="*" element={<NotFoundPage />} />
+                </Route>
+              </Routes>
             </ConvexProvider>
           </AuthProvider>
         </ErrorBoundary>
