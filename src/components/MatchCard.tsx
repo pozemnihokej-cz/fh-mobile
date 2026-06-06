@@ -12,6 +12,17 @@ export interface MatchCardData {
   supabaseId: string;
   homeTeamName: string;
   awayTeamName: string;
+  /**
+   * CHANGE-063 2026-06-06: parent club name when the team is linked
+   * to a club (csph teams carry the category in the name, e.g.
+   * "Litice ženy"). The display prefers `homeClubName ?? homeTeamName`
+   * because the league/competition row is rendered next to the
+   * matchup — showing the category in both places is duplicate.
+   */
+  homeClubName?: string | null;
+  awayClubName?: string | null;
+  homeClubLogo?: string | null;
+  awayClubLogo?: string | null;
   homeTeamLogo?: string | null;
   awayTeamLogo?: string | null;
   leagueName?: string | null;
@@ -87,11 +98,11 @@ export function MatchCard({
 
         <Grid container spacing={1} alignItems="center" sx={{ my: 1 }}>
           <Grid item xs={5} sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center' }}>
-            <Avatar src={match.homeTeamLogo || undefined} sx={{ width: 44, height: 44, mb: 1, bgcolor: 'rgba(255,255,255,0.05)' }}>
-              {match.homeTeamName[0]}
+            <Avatar src={(match.homeClubLogo ?? match.homeTeamLogo) || undefined} sx={{ width: 44, height: 44, mb: 1, bgcolor: 'rgba(255,255,255,0.05)' }}>
+              {(match.homeClubName ?? match.homeTeamName)[0]}
             </Avatar>
             <Typography variant="body2" sx={{ fontWeight: 800, fontSize: '13px', color: '#ffffff' }}>
-              {match.homeTeamName}
+              {match.homeClubName ?? match.homeTeamName}
             </Typography>
           </Grid>
 
@@ -117,11 +128,11 @@ export function MatchCard({
           </Grid>
 
           <Grid item xs={5} sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center' }}>
-            <Avatar src={match.awayTeamLogo || undefined} sx={{ width: 44, height: 44, mb: 1, bgcolor: 'rgba(255,255,255,0.05)' }}>
-              {match.awayTeamName[0]}
+            <Avatar src={(match.awayClubLogo ?? match.awayTeamLogo) || undefined} sx={{ width: 44, height: 44, mb: 1, bgcolor: 'rgba(255,255,255,0.05)' }}>
+              {(match.awayClubName ?? match.awayTeamName)[0]}
             </Avatar>
             <Typography variant="body2" sx={{ fontWeight: 800, fontSize: '13px', color: '#ffffff' }}>
-              {match.awayTeamName}
+              {match.awayClubName ?? match.awayTeamName}
             </Typography>
           </Grid>
         </Grid>

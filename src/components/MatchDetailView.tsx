@@ -104,11 +104,11 @@ export function MatchDetailView({
 
         <Grid container alignItems="center" sx={{ my: 2 }}>
           <Grid item xs={4} sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-            <Avatar src={match.homeTeamLogo || undefined} sx={{ width: 56, height: 56, mb: 1, bgcolor: 'rgba(255,255,255,0.05)' }}>
-              {match.homeTeamName[0]}
+            <Avatar src={(match.homeClubLogo ?? match.homeTeamLogo) || undefined} sx={{ width: 56, height: 56, mb: 1, bgcolor: 'rgba(255,255,255,0.05)' }}>
+              {(match.homeClubName ?? match.homeTeamName)[0]}
             </Avatar>
             <Typography variant="body2" sx={{ fontWeight: 800, color: '#ffffff' }}>
-              {match.homeTeamName}
+              {match.homeClubName ?? match.homeTeamName}
             </Typography>
           </Grid>
 
@@ -128,11 +128,11 @@ export function MatchDetailView({
           </Grid>
 
           <Grid item xs={4} sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-            <Avatar src={match.awayTeamLogo || undefined} sx={{ width: 56, height: 56, mb: 1, bgcolor: 'rgba(255,255,255,0.05)' }}>
-              {match.awayTeamName[0]}
+            <Avatar src={(match.awayClubLogo ?? match.awayTeamLogo) || undefined} sx={{ width: 56, height: 56, mb: 1, bgcolor: 'rgba(255,255,255,0.05)' }}>
+              {(match.awayClubName ?? match.awayTeamName)[0]}
             </Avatar>
             <Typography variant="body2" sx={{ fontWeight: 800, color: '#ffffff' }}>
-              {match.awayTeamName}
+              {match.awayClubName ?? match.awayTeamName}
             </Typography>
           </Grid>
         </Grid>
