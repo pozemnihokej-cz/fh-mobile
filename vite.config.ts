@@ -30,10 +30,40 @@ export default defineConfig(({ mode }) => {
       host: isDocker ? '0.0.0.0' : 'localhost',
       allowedHosts,
       watch: isDocker ? { usePolling: true, interval: 1000 } : undefined,
+      // Pre-transform critical modules at startup so the first cold load
+      // (typically mobile over a slow tunnel) doesn't pay a per-module
+      // JIT-compile + transfer latency tax for hundreds of TS files.
+      // Mirrors fh-online-management's server.warmup config.
+      warmup: {
+        clientFiles: [
+          './src/main.tsx',
+          './src/App.tsx',
+          './src/routes/TenantPickerPage.tsx',
+          './src/routes/TenantLayout.tsx',
+          './src/routes/MatchesPage.tsx',
+          './src/routes/MatchDetailPage.tsx',
+          './src/routes/NotFoundPage.tsx',
+          './src/routes/TenantContext.ts',
+          './src/lib/supabase.ts',
+          './src/lib/tenantBySlug.ts',
+          './src/lib/useUrlTenantOverride.ts',
+          '../../packages/auth/src/auth-context.tsx',
+          '../../packages/i18n/src/index.ts',
+          '../../packages/i18n/src/locales/cs.ts',
+          '../../packages/i18n/src/locales/en.ts',
+          '../../packages/ui/src/index.ts',
+        ],
+      },
       fs: {
         allow: [path.resolve(__dirname, '../..'), path.resolve(__dirname, '.')],
       },
       proxy: {
+        // Mirror fh-evidence: route /api through Vite to keep same-origin
+        // under the Cloudflare tunnel domain.
+        '/api': {
+          target: isDocker ? 'http://api:4000' : 'http://localhost:4000',
+          changeOrigin: true,
+        },
         '/auth/v1': {
           target: isDocker ? 'http://fh-kong:8000' : 'http://localhost:8000',
           changeOrigin: true,
@@ -47,6 +77,17 @@ export default defineConfig(({ mode }) => {
           target: isDocker ? 'http://fh-supabase-storage:5000' : 'http://localhost:5001',
           changeOrigin: true,
           rewrite: (p) => p.replace(/^\/storage\/v1/, ''),
+        },
+        // RFC-003: Supabase Realtime over WebSocket — mirror fh-evidence
+        // so live channels work without leaking to the polling fallback.
+        '/realtime/v1': {
+          target: isDocker ? 'http://realtime-dev:4000' : 'http://localhost:4000',
+          changeOrigin: true,
+          ws: true,
+          rewrite: (p) =>
+            p.startsWith('/realtime/v1/api')
+              ? p.replace(/^\/realtime\/v1\/api/, '/api')
+              : p.replace(/^\/realtime\/v1/, '/socket'),
         },
       },
     },
