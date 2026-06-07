@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import { useQuery } from 'convex/react';
 import { api } from '@convex/_generated/api';
 import {
@@ -11,21 +11,23 @@ import {
   Avatar,
   Divider,
   CircularProgress,
-  Tabs,
-  Tab,
   Button,
+  useTheme,
+  alpha,
+  Stack,
 } from '@mui/material';
 import {
   Star as StarIcon,
   StarBorder as StarBorderIcon,
   YouTube as YouTubeIcon,
 } from '@mui/icons-material';
+import {
+  MatchTimeline,
+  MatchClock,
+  useTimeline,
+  useMatchTimer,
+} from '@fh/ui';
 
-/**
- * CHANGE-055: lifted out of App.tsx; reused by MatchDetailPage at
- * `/<slug>/matches/<matchId>`. Single-row fetch by `supabaseId` (UUID) —
- * not slug-bound; anon RLS on `matches` already enforces tenant safety.
- */
 export function MatchDetailView({
   matchId,
   starred,
@@ -35,9 +37,20 @@ export function MatchDetailView({
   starred: boolean;
   onToggleStar: (e: React.MouseEvent) => void;
 }): JSX.Element {
-  const [activeSegment, setActiveSegment] = useState(0);
+  const theme = useTheme();
   const match = useQuery(api.functions.matches.getBySupabaseId, { supabaseId: matchId });
-  const events = useQuery(api.functions.matchTimeline.listEvents, { matchId });
+  const matchConfig = useMemo(() => {
+    if (!match) return undefined;
+    const cfg = (match as any).config;
+    return {
+      partType: cfg?.partType,
+      gameTime: cfg?.gameTime,
+      pauseTimes: cfg?.pauseTimes,
+    };
+  }, [match]);
+
+  const { elapsed, phase, totalElapsed, isRunning, colonVisible } = useMatchTimer(matchId, matchConfig);
+  const { events, derivedState } = useTimeline(matchId, totalElapsed);
 
   const isLive = match?.status === 'live';
 
@@ -53,22 +66,10 @@ export function MatchDetailView({
     });
   }, [match?.date]);
 
-  const score = useMemo(() => {
-    const res = { home: 0, away: 0 };
-    if (!events) return res;
-    events.forEach((e: { type: string; side: string }) => {
-      if (e.type === 'goal' || e.type === 'shootout_goal') {
-        if (e.side === 'home') res.home++;
-        else res.away++;
-      }
-    });
-    return res;
-  }, [events]);
-
   if (!match) {
     return (
       <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', py: 8 }}>
-        <CircularProgress color="success" />
+        <CircularProgress color="primary" />
       </Box>
     );
   }
@@ -78,143 +79,202 @@ export function MatchDetailView({
 
   return (
     <Box>
+      {/* Detail scoreboard header */}
       <Paper
         elevation={0}
         sx={{
           p: 3,
-          mb: 3,
-          bgcolor: isLive ? 'rgba(255,23,68,0.05)' : 'rgba(255,255,255,0.03)',
-          borderRadius: '24px',
-          border: '1px solid rgba(255,255,255,0.06)',
+          mb: 4,
+          bgcolor: isLive ? alpha(theme.palette.error.main, 0.08) : alpha(theme.palette.common.white, 0.03),
+          borderRadius: '32px',
+          border: `1px solid ${alpha(theme.palette.common.white, 0.06)}`,
+          backdropFilter: 'blur(20px)',
+          boxShadow: '0 20px 40px rgba(0,0,0,0.4)',
           textAlign: 'center',
+          position: 'relative',
+          overflow: 'hidden',
         }}
       >
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
-          <Typography variant="caption" sx={{ color: '#4caf50', fontWeight: 800 }}>
+        {/* Decorative background glow */}
+        <Box
+          sx={{
+            position: 'absolute',
+            top: '-20%',
+            left: '50%',
+            transform: 'translateX(-50%)',
+            width: '80%',
+            height: '100%',
+            background: `radial-gradient(circle, ${alpha(isLive ? theme.palette.error.main : theme.palette.primary.main, 0.15)} 0%, transparent 70%)`,
+            zIndex: 0,
+            pointerEvents: 'none',
+          }}
+        />
+
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1, position: 'relative', zIndex: 1 }}>
+          <Typography variant="caption" sx={{ color: 'primary.main', fontWeight: 900, letterSpacing: '0.1em' }}>
             {match.leagueName || 'LIGA'}
           </Typography>
           <IconButton
             size="small"
             onClick={onToggleStar}
-            sx={{ color: starred ? '#4caf50' : 'rgba(255,255,255,0.3)' }}
+            sx={{ color: starred ? 'primary.main' : alpha(theme.palette.common.white, 0.2) }}
           >
             {starred ? <StarIcon /> : <StarBorderIcon />}
           </IconButton>
         </Box>
 
-        <Grid container alignItems="center" sx={{ my: 2 }}>
+        <Grid container alignItems="center" sx={{ my: 2, position: 'relative', zIndex: 1 }}>
           <Grid item xs={4} sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-            <Avatar src={(match.homeClubLogo ?? match.homeTeamLogo) || undefined} sx={{ width: 56, height: 56, mb: 1, bgcolor: 'rgba(255,255,255,0.05)' }}>
+            <Avatar
+              src={(match.homeClubLogo ?? match.homeTeamLogo) || undefined}
+              sx={{ width: 64, height: 64, mb: 1.5, bgcolor: alpha(theme.palette.common.white, 0.05), boxShadow: '0 8px 24px rgba(0,0,0,0.3)', border: `2px solid ${alpha(theme.palette.common.white, 0.1)}` }}
+            >
               {(match.homeClubName ?? match.homeTeamName)[0]}
             </Avatar>
-            <Typography variant="body2" sx={{ fontWeight: 800, color: '#ffffff' }}>
+            <Typography variant="subtitle2" sx={{ fontWeight: 900, color: '#fff' }}>
               {match.homeClubName ?? match.homeTeamName}
             </Typography>
           </Grid>
 
           <Grid item xs={4} sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-            <Typography variant="h3" sx={{ fontWeight: 900, color: '#ffffff', letterSpacing: '-2px' }}>
-              {score.home} : {score.away}
+            <Typography variant="h2" sx={{ fontWeight: 950, color: '#fff', letterSpacing: '-3px', lineHeight: 1 }}>
+              {derivedState.score.home} : {derivedState.score.away}
             </Typography>
-            {isLive ? (
-              <Chip label="ŽIVĚ" color="error" size="small" sx={{ mt: 1, fontWeight: 900 }} />
-            ) : (
-              <Chip
-                label={match.status === 'completed' ? 'Konec' : 'Naplánováno'}
-                size="small"
-                sx={{ mt: 1, bgcolor: 'rgba(255,255,255,0.1)', color: 'rgba(255,255,255,0.7)', fontWeight: 700 }}
-              />
-            )}
+
+            <Box sx={{ mt: 2 }}>
+              {isLive ? (
+                <MatchClock
+                  seconds={elapsed}
+                  phase={phase}
+                  isRunning={isRunning}
+                  colonVisible={colonVisible}
+                  variant="fancy"
+                />
+              ) : (
+                <Chip
+                  label={match.status === 'completed' ? 'KONEC ZÁPASU' : 'NAPLÁNOVÁNO'}
+                  sx={{
+                    bgcolor: alpha(theme.palette.common.white, 0.1),
+                    color: '#fff',
+                    fontWeight: 900,
+                    letterSpacing: '0.05em',
+                    fontSize: '0.65rem',
+                    height: 24,
+                  }}
+                />
+              )}
+            </Box>
           </Grid>
 
           <Grid item xs={4} sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-            <Avatar src={(match.awayClubLogo ?? match.awayTeamLogo) || undefined} sx={{ width: 56, height: 56, mb: 1, bgcolor: 'rgba(255,255,255,0.05)' }}>
+            <Avatar
+              src={(match.awayClubLogo ?? match.awayTeamLogo) || undefined}
+              sx={{ width: 64, height: 64, mb: 1.5, bgcolor: alpha(theme.palette.common.white, 0.05), boxShadow: '0 8px 24px rgba(0,0,0,0.3)', border: `2px solid ${alpha(theme.palette.common.white, 0.1)}` }}
+            >
               {(match.awayClubName ?? match.awayTeamName)[0]}
             </Avatar>
-            <Typography variant="body2" sx={{ fontWeight: 800, color: '#ffffff' }}>
+            <Typography variant="subtitle2" sx={{ fontWeight: 900, color: '#fff' }}>
               {match.awayClubName ?? match.awayTeamName}
             </Typography>
           </Grid>
         </Grid>
 
-        <Divider sx={{ my: 2, borderColor: 'rgba(255,255,255,0.06)' }} />
-        <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.5)', display: 'block', mb: 0.5, fontWeight: 600 }}>
-          {matchDateStr}
-        </Typography>
-        <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.3)', fontWeight: 500 }}>
-          {match.location}
-        </Typography>
+        <Divider sx={{ my: 3, borderColor: alpha(theme.palette.common.white, 0.06), position: 'relative', zIndex: 1 }} />
+
+        <Stack direction="row" spacing={2} justifyContent="center" sx={{ position: 'relative', zIndex: 1 }}>
+          <Box>
+            <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block', fontWeight: 700 }}>
+              DATUM A ČAS
+            </Typography>
+            <Typography variant="caption" sx={{ color: '#fff', fontWeight: 800 }}>
+              {matchDateStr}
+            </Typography>
+          </Box>
+          <Box sx={{ width: 1, height: 'auto', bgcolor: alpha(theme.palette.common.white, 0.06) }} />
+          <Box>
+            <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block', fontWeight: 700 }}>
+              MÍSTO KONÁNÍ
+            </Typography>
+            <Typography variant="caption" sx={{ color: '#fff', fontWeight: 800 }}>
+              {match.location || 'Není uvedeno'}
+            </Typography>
+          </Box>
+        </Stack>
       </Paper>
 
-      <Tabs
-        value={activeSegment}
-        onChange={(_e, val: number) => setActiveSegment(val)}
-        centered
-        sx={{
-          mb: 3,
-          '& .MuiTabs-indicator': { bgcolor: '#4caf50' },
-          '& .MuiTab-root': { color: 'rgba(255,255,255,0.4)', '&.Mui-selected': { color: '#ffffff' } },
-        }}
-      >
-        <Tab label="Průběh" />
-        <Tab label="YouTube Stream" disabled={!youtubeVideoId} />
-      </Tabs>
+      {/* Timeline Section */}
+      <Box sx={{ mb: 4 }}>
+        <Typography variant="subtitle1" sx={{ mb: 2.5, fontWeight: 900, color: 'text.primary', display: 'flex', alignItems: 'center', gap: 1.5 }}>
+          <Box sx={{ width: 4, height: 16, bgcolor: 'primary.main', borderRadius: 1 }} />
+          PRŮBĚH UTKÁNÍ
+        </Typography>
 
-      {activeSegment === 0 && (
-        <Box>
-          <Typography variant="subtitle2" sx={{ mb: 2, fontWeight: 800, color: 'rgba(255,255,255,0.5)' }}>
-            ČASOVÁ OSA UTKÁNÍ
+        <MatchTimeline
+          events={events}
+          homeTeamName={match.homeTeamName}
+          homeTeamLogo={match.homeTeamLogo}
+          awayTeamName={match.awayTeamName}
+          awayTeamLogo={match.awayTeamLogo}
+          partType={matchConfig?.partType}
+          variant="fancy"
+        />
+      </Box>
+
+      {/* YouTube Section */}
+      {youtubeVideoId && (
+        <Box sx={{ mb: 4 }}>
+          <Typography variant="subtitle1" sx={{ mb: 2.5, fontWeight: 900, color: 'text.primary', display: 'flex', alignItems: 'center', gap: 1.5 }}>
+            <Box sx={{ width: 4, height: 16, bgcolor: '#ff0000', borderRadius: 1 }} />
+            VIDEO PŘENOS
           </Typography>
 
-          {!events || events.length === 0 ? (
-            <Paper sx={{ p: 4, textAlign: 'center', bgcolor: 'rgba(255,255,255,0.02)', borderRadius: '16px' }}>
-              <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.4)' }}>
-                Zatím nebyly zaznamenány žádné události zápasu.
-              </Typography>
-            </Paper>
-          ) : (
-            <Box>
-              {[...events].sort((a, b) => b.minute - a.minute).map((e) => (
-                <Box key={e._id} sx={{ mb: 2 }}>
-                  <Typography variant="body2">
-                    {e.minute}&apos; — {e.type} ({e.side})
-                  </Typography>
-                </Box>
-              ))}
-            </Box>
-          )}
-        </Box>
-      )}
-
-      {activeSegment === 1 && youtubeVideoId && (
-        <Box>
           <Paper
             elevation={4}
             sx={{
               position: 'relative',
-              paddingTop: '56.25%',
+              paddingTop: '56.25%', // 16:9 Aspect Ratio
               overflow: 'hidden',
-              bgcolor: '#000000',
-              borderRadius: '16px',
-              border: '1px solid rgba(255,255,255,0.08)',
+              bgcolor: '#000',
+              borderRadius: '24px',
+              border: `1px solid ${alpha(theme.palette.common.white, 0.08)}`,
+              boxShadow: '0 12px 40px rgba(0,0,0,0.5)',
             }}
           >
             <iframe
-              style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', border: 0 }}
+              style={{
+                position: 'absolute',
+                top: 0,
+                left: 0,
+                width: '100%',
+                height: '100%',
+                border: 0,
+              }}
               src={`https://www.youtube.com/embed/${youtubeVideoId}`}
               title="YouTube video player"
               allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
               allowFullScreen
             />
           </Paper>
+
           <Button
             fullWidth
             variant="outlined"
-            color="error"
-            startIcon={<YouTubeIcon />}
+            color="inherit"
+            startIcon={<YouTubeIcon sx={{ color: '#ff0000' }} />}
             href={`https://www.youtube.com/watch?v=${youtubeVideoId}`}
             target="_blank"
-            sx={{ mt: 2, borderRadius: '12px' }}
+            sx={{
+              mt: 2,
+              borderRadius: '16px',
+              py: 1.5,
+              fontWeight: 800,
+              bgcolor: alpha(theme.palette.common.white, 0.03),
+              borderColor: alpha(theme.palette.common.white, 0.1),
+              '&:hover': {
+                bgcolor: alpha(theme.palette.common.white, 0.08),
+                borderColor: alpha(theme.palette.common.white, 0.2),
+              }
+            }}
           >
             Otevřít v aplikaci YouTube
           </Button>

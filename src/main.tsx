@@ -5,7 +5,7 @@ import { ConvexProvider, ConvexReactClient } from 'convex/react';
 import { ThemeProvider } from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
 import { Box, Typography, Button } from '@mui/material';
-import { fhTheme } from '@fh/ui';
+import { fhThemeDark } from '@fh/ui';
 import { AuthProvider } from '@fh/auth';
 import { initI18n } from '@fh/i18n';
 import { resolveBaseUrl, resolveSiblingUrl } from './lib/runtimeUrls';
@@ -69,7 +69,7 @@ class ErrorBoundary extends React.Component<
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
     <BrowserRouter>
-      <ThemeProvider theme={fhTheme}>
+      <ThemeProvider theme={fhThemeDark}>
         <CssBaseline />
         <ErrorBoundary>
           <AuthProvider

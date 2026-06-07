@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { Box, Container, IconButton, Paper, Typography } from '@mui/material';
+import { Box, Container, IconButton, Paper, Typography, alpha, useTheme } from '@mui/material';
 import { ArrowBack as BackIcon } from '@mui/icons-material';
 import { MatchDetailView } from '../components/MatchDetailView';
 
@@ -13,6 +13,7 @@ import { MatchDetailView } from '../components/MatchDetailView';
  */
 export default function MatchDetailPage(): JSX.Element {
   const { matchId } = useParams<{ matchId: string }>();
+  const theme = useTheme();
 
   const [starredMatches, setStarredMatches] = useState<string[]>(() => {
     try {
@@ -47,17 +48,17 @@ export default function MatchDetailPage(): JSX.Element {
   };
 
   return (
-    <Box sx={{ minHeight: '100vh', bgcolor: '#121212', color: '#ffffff' }}>
+    <Box sx={{ minHeight: '100vh', bgcolor: 'background.default', color: '#ffffff' }}>
       <Paper
         elevation={0}
         sx={{
-          py: 1,
+          py: 2,
           position: 'sticky',
           top: 0,
           zIndex: 1100,
-          bgcolor: 'rgba(18,18,18,0.85)',
+          bgcolor: alpha(theme.palette.background.default, 0.8),
           backdropFilter: 'blur(20px)',
-          borderBottom: '1px solid rgba(255,255,255,0.08)',
+          borderBottom: `1px solid ${alpha(theme.palette.divider, 0.1)}`,
           borderRadius: 0,
         }}
       >
@@ -67,16 +68,26 @@ export default function MatchDetailPage(): JSX.Element {
             component={Link}
             to=".."
             relative="path"
-            sx={{ color: '#ffffff' }}
+            sx={{
+              color: '#ffffff',
+              mr: 1,
+              bgcolor: alpha(theme.palette.common.white, 0.05),
+              '&:hover': { bgcolor: alpha(theme.palette.common.white, 0.1) }
+            }}
           >
             <BackIcon />
           </IconButton>
-          <Typography variant="h6" sx={{ ml: 2, fontWeight: 900 }}>
-            Detail Zápasu
-          </Typography>
+          <Box>
+            <Typography variant="h6" sx={{ fontWeight: 900, lineHeight: 1.1 }}>
+              Detail Zápasu
+            </Typography>
+            <Typography variant="caption" sx={{ color: 'primary.main', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.1em' }}>
+              Statistiky a průběh
+            </Typography>
+          </Box>
         </Container>
       </Paper>
-      <Container maxWidth="xs" sx={{ py: 2 }}>
+      <Container maxWidth="xs" sx={{ py: 3 }}>
         <MatchDetailView
           matchId={matchId}
           starred={starredMatches.includes(matchId)}
