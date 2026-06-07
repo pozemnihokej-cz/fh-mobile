@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import { useQuery } from 'convex/react';
 import { api } from '@convex/_generated/api';
 import {
@@ -12,6 +12,8 @@ import {
   Divider,
   CircularProgress,
   Button,
+  Snackbar,
+  Alert,
   useTheme,
   alpha,
   Stack,
@@ -20,12 +22,16 @@ import {
   Star as StarIcon,
   StarBorder as StarBorderIcon,
   YouTube as YouTubeIcon,
+  SportsSoccer as SportsSoccerIcon,
+  Style as StyleIcon,
+  LocalHospital as LocalHospitalIcon,
 } from '@mui/icons-material';
 import {
   MatchTimeline,
   MatchClock,
   useTimeline,
-  useMatchTimer,
+  useLiveMatchClock,
+  useTimelineEventBursts,
 } from '@fh/ui';
 
 export function MatchDetailView({
@@ -49,8 +55,28 @@ export function MatchDetailView({
     };
   }, [match]);
 
-  const { elapsed, phase, totalElapsed, isRunning, colonVisible } = useMatchTimer(matchId, matchConfig);
+  // Fan app is a read-only surface — use the display-only clock so we can't
+  // accidentally fire operator mutations (start/pause/phase). The clock
+  // returns the same drift-corrected fields the operator hook does, minus
+  // the mutators. `totalElapsed` then drives time-bound score + suspensions
+  // via the standard useTimeline derivation.
+  const { time: elapsed, phase, totalElapsed, running: isRunning, colonVisible } = useLiveMatchClock(matchId, matchConfig);
   const { events, derivedState } = useTimeline(matchId, totalElapsed);
+
+  // Fan notification surface: a Snackbar fires every time a new
+  // highlightable event becomes time-visible. Uses the same shared burst
+  // hook as the streaming overlay + scoreboard so live, replay-scrubbed,
+  // and operator-corrected timelines all surface identically. The hook
+  // primes its seen-set on first render so opening a finished match
+  // doesn't cascade 16 banners across the screen.
+  const { latest: latestBurst } = useTimelineEventBursts(events, totalElapsed, {
+    durationMs: 6_000,
+    types: ['goal', 'card', 'shootout_goal'],
+  });
+  const [activeNotification, setActiveNotification] = useState<typeof latestBurst | null>(null);
+  useEffect(() => {
+    if (latestBurst) setActiveNotification(latestBurst);
+  }, [latestBurst?.firedAt]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const isLive = match?.status === 'live';
 
@@ -280,6 +306,35 @@ export function MatchDetailView({
           </Button>
         </Box>
       )}
+
+      {/* Live event notifications — Snackbar fires when the shared burst hook
+          surfaces a new highlightable event (goal / card / shootout goal). */}
+      <Snackbar
+        open={!!activeNotification}
+        autoHideDuration={6_000}
+        onClose={() => setActiveNotification(null)}
+        anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
+      >
+        <Alert
+          onClose={() => setActiveNotification(null)}
+          severity={activeNotification?.event.type === 'goal' || activeNotification?.event.type === 'shootout_goal' ? 'success' : 'warning'}
+          icon={
+            activeNotification?.event.type === 'goal' || activeNotification?.event.type === 'shootout_goal'
+              ? <SportsSoccerIcon fontSize="inherit" />
+              : activeNotification?.event.type === 'card'
+                ? <StyleIcon fontSize="inherit" />
+                : <LocalHospitalIcon fontSize="inherit" />
+          }
+          sx={{ width: '100%', fontWeight: 800, alignItems: 'center' }}
+        >
+          {activeNotification && (() => {
+            const ev: any = activeNotification.event;
+            const side = ev.side === 'home' ? (match?.homeClubName ?? match?.homeTeamName) : (match?.awayClubName ?? match?.awayTeamName);
+            const label = ev.type === 'goal' || ev.type === 'shootout_goal' ? 'GÓL' : ev.type === 'card' ? `KARTA (${ev.event?.card ?? '?'})` : ev.type.toUpperCase();
+            return `${label} ${ev.minute ? `${ev.minute}' ` : ''}— ${side ?? ''} · ${ev.playerName ?? ''}`;
+          })()}
+        </Alert>
+      </Snackbar>
     </Box>
   );
 }
