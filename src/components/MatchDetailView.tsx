@@ -330,7 +330,16 @@ export function MatchDetailView({
           {activeNotification && (() => {
             const ev: any = activeNotification.event;
             const side = ev.side === 'home' ? (match?.homeClubName ?? match?.homeTeamName) : (match?.awayClubName ?? match?.awayTeamName);
-            const label = ev.type === 'goal' || ev.type === 'shootout_goal' ? 'GÓL' : ev.type === 'card' ? `KARTA (${ev.event?.card ?? '?'})` : ev.type.toUpperCase();
+            // Localized labels: 'card' includes the Czech color name so the fan
+            // sees "KARTA (žlutá)" instead of "KARTA (yellow)". Color comes
+            // from `event.event.card` which carries the operator's full-word
+            // pick (`'green' | 'yellow' | 'red'`) from MatchEventsPage.
+            const cardColorCz: Record<string, string> = { green: 'zelená', yellow: 'žlutá', red: 'červená' };
+            const label = ev.type === 'goal' || ev.type === 'shootout_goal'
+              ? 'GÓL'
+              : ev.type === 'card'
+                ? `KARTA (${cardColorCz[ev.event?.card] ?? ev.event?.card ?? '?'})`
+                : ev.type.toUpperCase();
             return `${label} ${ev.minute ? `${ev.minute}' ` : ''}— ${side ?? ''} · ${ev.playerName ?? ''}`;
           })()}
         </Alert>
