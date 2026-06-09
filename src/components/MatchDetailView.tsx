@@ -60,7 +60,7 @@ export function MatchDetailView({
   // returns the same drift-corrected fields the operator hook does, minus
   // the mutators. `totalElapsed` then drives time-bound score + suspensions
   // via the standard useTimeline derivation.
-  const { time: elapsed, phase, totalElapsed, running: isRunning, colonVisible } = useLiveMatchClock(matchId, matchConfig);
+  const { time: elapsed, phase, totalElapsed, running: isRunning, colonVisible, loaded: clockLoaded } = useLiveMatchClock(matchId, matchConfig);
   const { events, derivedState, loaded: timelineLoaded } = useTimeline(matchId, totalElapsed);
 
   // Fan notification surface: a Snackbar fires every time a new
@@ -75,6 +75,10 @@ export function MatchDetailView({
     durationMs: 6_000,
     types: ['goal', 'card', 'shootout_goal'],
     loaded: timelineLoaded,
+    // `clockLoaded` gates the prime so cursor=0 (clock still loading)
+    // can't mark every event as still-future and cascade-replay them
+    // the moment the real cursor arrives.
+    clockReady: clockLoaded,
   });
   // Suppress unknown-player bursts — operator-entered events without an
   // identified player (the OM "Neznámý" placeholder serializes to
