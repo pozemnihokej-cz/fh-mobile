@@ -61,7 +61,7 @@ export function MatchDetailView({
   // the mutators. `totalElapsed` then drives time-bound score + suspensions
   // via the standard useTimeline derivation.
   const { time: elapsed, phase, totalElapsed, running: isRunning, colonVisible } = useLiveMatchClock(matchId, matchConfig);
-  const { events, derivedState } = useTimeline(matchId, totalElapsed);
+  const { events, derivedState, loaded: timelineLoaded } = useTimeline(matchId, totalElapsed);
 
   // Fan notification surface: a Snackbar fires every time a new
   // highlightable event becomes time-visible. Uses the same shared burst
@@ -74,6 +74,7 @@ export function MatchDetailView({
   const { current: latestBurst } = useTimelineEventBursts(events, totalElapsed, {
     durationMs: 6_000,
     types: ['goal', 'card', 'shootout_goal'],
+    loaded: timelineLoaded,
   });
   // Suppress unknown-player bursts — operator-entered events without an
   // identified player (the OM "Neznámý" placeholder serializes to
