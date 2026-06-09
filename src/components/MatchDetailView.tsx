@@ -68,14 +68,26 @@ export function MatchDetailView({
   // hook as the streaming overlay + scoreboard so live, replay-scrubbed,
   // and operator-corrected timelines all surface identically. The hook
   // primes its seen-set on first render so opening a finished match
-  // doesn't cascade 16 banners across the screen.
-  const { latest: latestBurst } = useTimelineEventBursts(events, totalElapsed, {
+  // doesn't cascade 16 banners across the screen, and queues concurrent
+  // bursts (multiple events at the same `e.time`) so they pop one after
+  // the other instead of collapsing into a single slot.
+  const { current: latestBurst } = useTimelineEventBursts(events, totalElapsed, {
     durationMs: 6_000,
     types: ['goal', 'card', 'shootout_goal'],
   });
+  // Suppress unknown-player bursts — operator-entered events without an
+  // identified player (the OM "Neznámý" placeholder serializes to
+  // `playerName = '? - ?'`) shouldn't ping a fan with a "?" notification.
+  const isUnknownPlayer = (label?: string | null): boolean => {
+    if (!label) return true;
+    const parts = label.trim().split(' - ').map((p) => p.trim());
+    return parts.every((p) => p === '' || p === '?');
+  };
   const [activeNotification, setActiveNotification] = useState<typeof latestBurst | null>(null);
   useEffect(() => {
-    if (latestBurst) setActiveNotification(latestBurst);
+    if (latestBurst && !isUnknownPlayer(latestBurst.event.playerName)) {
+      setActiveNotification(latestBurst);
+    }
   }, [latestBurst?.firedAt]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const isLive = match?.status === 'live';

@@ -52,10 +52,11 @@ vi.mock('@convex/_generated/api', () => ({
 // return values for the four hooks via the module-level locals.
 let burstState: {
   bursts: any[];
+  current: any | null;
   latest: any | null;
   home: any | null;
   guest: any | null;
-} = { bursts: [], latest: null, home: null, guest: null };
+} = { bursts: [], current: null, latest: null, home: null, guest: null };
 
 vi.mock('@fh/ui', () => ({
   MatchTimeline: () => null,
@@ -93,7 +94,7 @@ function renderView() {
 describe('MatchDetailView Snackbar burst notifications', () => {
   beforeEach(() => {
     cleanup();
-    burstState = { bursts: [], latest: null, home: null, guest: null };
+    burstState = { bursts: [], current: null, latest: null, home: null, guest: null };
   });
 
   it('renders no alert when no burst is active', () => {
@@ -104,11 +105,12 @@ describe('MatchDetailView Snackbar burst notifications', () => {
   it('shows GÓL + player + side when the latest burst is a goal on home', () => {
     burstState = {
       bursts: [],
-      latest: {
+      current: {
         event: { _id: 'g1', type: 'goal', side: 'home', minute: 12, playerName: '7 - Holubec' },
         firedAt: Date.now(),
         expiresAt: Date.now() + 6_000,
       },
+      latest: null,
       home: null,
       guest: null,
     };
@@ -123,7 +125,7 @@ describe('MatchDetailView Snackbar burst notifications', () => {
   it('localizes card color to cs (KARTA (žlutá), not (yellow))', () => {
     burstState = {
       bursts: [],
-      latest: {
+      current: {
         event: {
           _id: 'c1',
           type: 'card',
@@ -135,6 +137,7 @@ describe('MatchDetailView Snackbar burst notifications', () => {
         firedAt: Date.now(),
         expiresAt: Date.now() + 6_000,
       },
+      latest: null,
       home: null,
       guest: null,
     };
@@ -150,7 +153,7 @@ describe('MatchDetailView Snackbar burst notifications', () => {
   it('localizes red and green card colors', () => {
     burstState = {
       bursts: [],
-      latest: {
+      current: {
         event: {
           _id: 'c2',
           type: 'card',
@@ -162,6 +165,7 @@ describe('MatchDetailView Snackbar burst notifications', () => {
         firedAt: Date.now(),
         expiresAt: Date.now() + 6_000,
       },
+      latest: null,
       home: null,
       guest: null,
     };
@@ -171,14 +175,34 @@ describe('MatchDetailView Snackbar burst notifications', () => {
     expect(alert.textContent).not.toContain('red');
   });
 
+  it('suppresses the Snackbar when the operator did not pick a player (unknown sentinel)', () => {
+    // OM's "Neznámý" placeholder serializes player as `'? - ?'`. Mobile
+    // fans should not get a "GÓL ? - ?" toast — the score / pip elsewhere
+    // captures the event, but a notification with `?` is noise.
+    burstState = {
+      bursts: [],
+      current: {
+        event: { _id: 'g_unk', type: 'goal', side: 'home', minute: 30, playerName: '? - ?' },
+        firedAt: Date.now(),
+        expiresAt: Date.now() + 6_000,
+      },
+      latest: null,
+      home: null,
+      guest: null,
+    };
+    renderView();
+    expect(screen.queryByRole('alert')).toBeNull();
+  });
+
   it('shootout_goal renders as GÓL (same as regulation goal)', () => {
     burstState = {
       bursts: [],
-      latest: {
+      current: {
         event: { _id: 'so1', type: 'shootout_goal', side: 'away', minute: 60, playerName: '3 - Penalty Hero' },
         firedAt: Date.now(),
         expiresAt: Date.now() + 6_000,
       },
+      latest: null,
       home: null,
       guest: null,
     };
