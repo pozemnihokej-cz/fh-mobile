@@ -1,11 +1,10 @@
-import { createClient } from '@supabase/supabase-js';
-import { resolveBaseUrl } from './runtimeUrls';
+import { createAppSupabaseClient } from '@fh/supabase-client';
 
-const supabaseUrl = resolveBaseUrl(import.meta.env.VITE_SUPABASE_URL, 'http://localhost:3004');
-const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
-
-if (!supabaseKey) {
-  console.error('VITE_SUPABASE_ANON_KEY is not set. Add it to .env.');
-}
-
-export const supabase = createClient(supabaseUrl, supabaseKey);
+// TECHDEBT-032 item 1: shared Supabase client factory (was copy-pasted across
+// the 3 apps). ANON_KEY only. import.meta.env access stays literal (Vite
+// per-module injection — docs/knowledge/LEARNED.md 2026-05-07).
+export const supabase = createAppSupabaseClient({
+  envUrl: import.meta.env.VITE_SUPABASE_URL,
+  envAnonKey: import.meta.env.VITE_SUPABASE_ANON_KEY,
+  localFallback: 'http://localhost:3004',
+});
