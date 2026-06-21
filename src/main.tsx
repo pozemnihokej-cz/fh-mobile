@@ -1,12 +1,13 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import ReactDOM from 'react-dom/client';
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 import { ConvexProvider, ConvexReactClient } from 'convex/react';
 import { ThemeProvider } from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
 import { Box, Typography, Button } from '@mui/material';
-import { fhThemeDark } from '@fh/ui';
-import { AuthProvider } from '@fh/auth';
+import { buildTenantTheme } from '@fh/ui';
+import { AuthProvider, useAuth } from '@fh/auth';
+import { resolveTenantTheme } from '@fh/config';
 import { initI18n } from '@fh/i18n';
 import { resolveBaseUrl, resolveSiblingUrl } from './lib/runtimeUrls';
 import { supabase } from './lib/supabase';
@@ -59,6 +60,26 @@ class ErrorBoundary extends React.Component<
   }
 }
 
+// PRD-041 Phase B: tenant-resolved theming (fixed DARK mode for fh-mobile).
+// MobileThemeBridge reads the active tenant from useAuth() and builds the
+// MUI theme from the resolved tenant slug. Because it calls useAuth(),
+// AuthProvider MUST be an ancestor of this bridge in the tree below.
+function MobileThemeBridge({ children }: { children: React.ReactNode }) {
+  const { user } = useAuth();
+  const m = user?.allMemberships?.find((x) => x.tenant_id === user?.tenantId);
+  const slug = m?.tenant_slug ?? undefined;
+  const muiTheme = useMemo(
+    () => buildTenantTheme(resolveTenantTheme(slug), 'dark'),
+    [slug],
+  );
+  return (
+    <ThemeProvider theme={muiTheme}>
+      <CssBaseline />
+      {children}
+    </ThemeProvider>
+  );
+}
+
 // CHANGE-055 route table:
 //   /                          → tenant picker
 //   /:slug/                    → matches (index redirect to ./matches)
@@ -69,13 +90,12 @@ class ErrorBoundary extends React.Component<
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
     <BrowserRouter>
-      <ThemeProvider theme={fhThemeDark}>
-        <CssBaseline />
-        <ErrorBoundary>
-          <AuthProvider
-            supabaseClient={supabase}
-            apiUrl={resolveBaseUrl(import.meta.env.VITE_API_URL, 'http://localhost:4000')}
-          >
+      <AuthProvider
+        supabaseClient={supabase}
+        apiUrl={resolveBaseUrl(import.meta.env.VITE_API_URL, 'http://localhost:4000')}
+      >
+        <MobileThemeBridge>
+          <ErrorBoundary>
             <ConvexProvider client={convex}>
               <Routes>
                 <Route element={<App />}>
@@ -90,9 +110,9 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
                 </Route>
               </Routes>
             </ConvexProvider>
-          </AuthProvider>
-        </ErrorBoundary>
-      </ThemeProvider>
+          </ErrorBoundary>
+        </MobileThemeBridge>
+      </AuthProvider>
     </BrowserRouter>
   </React.StrictMode>
 );
