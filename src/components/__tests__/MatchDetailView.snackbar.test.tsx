@@ -59,6 +59,7 @@ let burstState: {
 } = { bursts: [], current: null, latest: null, home: null, guest: null };
 
 vi.mock('@fh/ui', () => ({
+  MatchScoreboard: () => null,
   MatchTimeline: () => null,
   MatchClock: () => null,
   useTimeline: () => ({
