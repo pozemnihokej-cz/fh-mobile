@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { Box, Container, IconButton, Paper, Typography, alpha, useTheme } from '@mui/material';
+import { Box, Container, IconButton, Typography, alpha, useTheme } from '@mui/material';
 import { ArrowBack as BackIcon } from '@mui/icons-material';
+import { StickyGlassHeader } from '@fh/ui';
 import { MatchDetailView } from '../components/MatchDetailView';
 
 /**
@@ -49,20 +50,11 @@ export default function MatchDetailPage(): JSX.Element {
 
   return (
     <Box sx={{ minHeight: '100vh', bgcolor: 'background.default', color: '#ffffff' }}>
-      <Paper
-        elevation={0}
-        sx={{
-          py: 2,
-          position: 'sticky',
-          top: 0,
-          zIndex: 1100,
-          bgcolor: alpha(theme.palette.background.default, 0.8),
-          backdropFilter: 'blur(20px)',
-          borderBottom: `1px solid ${alpha(theme.palette.divider, 0.1)}`,
-          borderRadius: 0,
-        }}
-      >
-        <Container maxWidth="xs" sx={{ display: 'flex', alignItems: 'center' }}>
+      {/* Shared @fh/ui sticky glass bar (leading = back affordance) */}
+      <StickyGlassHeader
+        title="Detail Zápasu"
+        subtitle="Statistiky a průběh"
+        leading={
           <IconButton
             data-testid="match-detail-back"
             component={Link}
@@ -70,23 +62,14 @@ export default function MatchDetailPage(): JSX.Element {
             relative="path"
             sx={{
               color: '#ffffff',
-              mr: 1,
               bgcolor: alpha(theme.palette.common.white, 0.05),
-              '&:hover': { bgcolor: alpha(theme.palette.common.white, 0.1) }
+              '&:hover': { bgcolor: alpha(theme.palette.common.white, 0.1) },
             }}
           >
             <BackIcon />
           </IconButton>
-          <Box>
-            <Typography variant="h6" sx={{ fontWeight: 900, lineHeight: 1.1 }}>
-              Detail Zápasu
-            </Typography>
-            <Typography variant="caption" sx={{ color: 'primary.main', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.1em' }}>
-              Statistiky a průběh
-            </Typography>
-          </Box>
-        </Container>
-      </Paper>
+        }
+      />
       <Container maxWidth="xs" sx={{ py: 3 }}>
         <MatchDetailView
           matchId={matchId}

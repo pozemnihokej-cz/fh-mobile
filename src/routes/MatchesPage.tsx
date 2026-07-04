@@ -10,9 +10,9 @@ import {
   alpha,
   useTheme,
   Paper,
-  Stack,
 } from '@mui/material';
 import { SportsHockey as HockeyIcon } from '@mui/icons-material';
+import { StickyGlassHeader } from '@fh/ui';
 import { MatchCard, type MatchCardData } from '../components/MatchCard';
 import { useTenantContext } from './TenantContext';
 
@@ -68,48 +68,28 @@ export default function MatchesPage(): JSX.Element {
 
   return (
     <Box sx={{ minHeight: '100vh', bgcolor: 'background.default', color: '#ffffff', pb: 4 }}>
-      {/* Page Header */}
-      <Paper
-        elevation={0}
-        sx={{
-          py: 2,
-          mb: 3,
-          position: 'sticky',
-          top: 0,
-          zIndex: 1100,
-          bgcolor: alpha(theme.palette.background.default, 0.8),
-          backdropFilter: 'blur(20px)',
-          borderBottom: `1px solid ${alpha(theme.palette.divider, 0.1)}`,
-          borderRadius: 0,
-        }}
-      >
-        <Container maxWidth="xs" sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <Stack direction="row" spacing={1.5} alignItems="center">
-            <Box
-              sx={{
-                width: 40,
-                height: 40,
-                borderRadius: '12px',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                bgcolor: alpha(theme.palette.primary.main, 0.1),
-                color: 'primary.main',
-              }}
-            >
-              <HockeyIcon />
-            </Box>
-            <Box>
-              <Typography variant="h6" sx={{ fontWeight: 900, lineHeight: 1.1 }}>
-                {tenantName || 'Zápasy'}
-              </Typography>
-              <Typography variant="caption" sx={{ color: 'primary.main', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.1em' }}>
-                Program a výsledky
-              </Typography>
-            </Box>
-          </Stack>
-        </Container>
-      </Paper>
+      {/* Page header — shared @fh/ui sticky glass bar (leading = brand badge) */}
+      <StickyGlassHeader
+        sx={{ mb: 3 }}
+        title={tenantName || 'Zápasy'}
+        subtitle="Program a výsledky"
+        leading={
+          <Box
+            sx={{
+              width: 40,
+              height: 40,
+              borderRadius: '12px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              bgcolor: alpha(theme.palette.primary.main, 0.1),
+              color: 'primary.main',
+            }}
+          >
+            <HockeyIcon />
+          </Box>
+        }
+      />
 
       <Container maxWidth="xs">
         {sorted.length === 0 ? (
