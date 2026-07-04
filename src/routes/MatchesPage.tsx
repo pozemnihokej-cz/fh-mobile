@@ -1,18 +1,16 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery } from 'convex/react';
 import { api } from '@convex/_generated/api';
 import {
   Box,
   Container,
-  Typography,
   CircularProgress,
   alpha,
   useTheme,
-  Paper,
 } from '@mui/material';
 import { SportsHockey as HockeyIcon } from '@mui/icons-material';
-import { StickyGlassHeader } from '@fh/ui';
+import { StickyGlassHeader, EmptyState, useStarredIds } from '@fh/ui';
 import { MatchCard, type MatchCardData } from '../components/MatchCard';
 import { useTenantContext } from './TenantContext';
 
@@ -29,29 +27,7 @@ export default function MatchesPage(): JSX.Element {
     tenantId ? { tenantId } : 'skip',
   );
 
-  const [starredMatches, setStarredMatches] = useState<string[]>(() => {
-    try {
-      const saved = typeof window !== 'undefined' ? window.localStorage.getItem('fh_starred_matches') : null;
-      return saved ? (JSON.parse(saved) as string[]) : [];
-    } catch {
-      return [];
-    }
-  });
-
-  useEffect(() => {
-    try {
-      window.localStorage.setItem('fh_starred_matches', JSON.stringify(starredMatches));
-    } catch {
-      /* storage disabled */
-    }
-  }, [starredMatches]);
-
-  const toggleStar = (supabaseId: string, e: React.MouseEvent): void => {
-    e.stopPropagation();
-    setStarredMatches((prev) =>
-      prev.includes(supabaseId) ? prev.filter((id) => id !== supabaseId) : [...prev, supabaseId],
-    );
-  };
+  const { isStarred, toggle: toggleStar } = useStarredIds('fh_starred_matches');
 
   const sorted = useMemo<MatchCardData[]>(() => {
     if (!matches) return [];
@@ -93,28 +69,22 @@ export default function MatchesPage(): JSX.Element {
 
       <Container maxWidth="xs">
         {sorted.length === 0 ? (
-          <Paper
-            elevation={0}
-            sx={{
-              p: 6,
-              textAlign: 'center',
-              bgcolor: alpha(theme.palette.common.white, 0.03),
-              borderRadius: '24px',
-              border: `1px solid ${alpha(theme.palette.common.white, 0.06)}`,
-            }}
-          >
-            <Typography variant="body2" sx={{ color: 'text.secondary', fontWeight: 600 }}>
-              Zatím nejsou naplánovány žádné zápasy.
-            </Typography>
-          </Paper>
+          <EmptyState
+            icon={<HockeyIcon sx={{ fontSize: 44 }} />}
+            title="Žádné zápasy"
+            description="Zatím nejsou naplánovány žádné zápasy."
+          />
         ) : (
           <Box>
             {sorted.map((m) => (
               <MatchCard
                 key={m._id}
                 match={m}
-                isStarred={starredMatches.includes(m.supabaseId)}
-                onToggleStar={(e) => toggleStar(m.supabaseId, e)}
+                isStarred={isStarred(m.supabaseId)}
+                onToggleStar={(e) => {
+                  e.stopPropagation();
+                  toggleStar(m.supabaseId);
+                }}
                 onClick={() => navigate(m.supabaseId)}
               />
             ))}

@@ -1,8 +1,7 @@
-import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { Box, Container, IconButton, Typography, alpha, useTheme } from '@mui/material';
 import { ArrowBack as BackIcon } from '@mui/icons-material';
-import { StickyGlassHeader } from '@fh/ui';
+import { StickyGlassHeader, useStarredIds } from '@fh/ui';
 import { MatchDetailView } from '../components/MatchDetailView';
 
 /**
@@ -15,23 +14,7 @@ import { MatchDetailView } from '../components/MatchDetailView';
 export default function MatchDetailPage(): JSX.Element {
   const { matchId } = useParams<{ matchId: string }>();
   const theme = useTheme();
-
-  const [starredMatches, setStarredMatches] = useState<string[]>(() => {
-    try {
-      const saved = typeof window !== 'undefined' ? window.localStorage.getItem('fh_starred_matches') : null;
-      return saved ? (JSON.parse(saved) as string[]) : [];
-    } catch {
-      return [];
-    }
-  });
-
-  useEffect(() => {
-    try {
-      window.localStorage.setItem('fh_starred_matches', JSON.stringify(starredMatches));
-    } catch {
-      /* storage disabled */
-    }
-  }, [starredMatches]);
+  const { isStarred, toggle } = useStarredIds('fh_starred_matches');
 
   if (!matchId) {
     return (
@@ -40,13 +23,6 @@ export default function MatchDetailPage(): JSX.Element {
       </Box>
     );
   }
-
-  const toggleStar = (e: React.MouseEvent): void => {
-    e.stopPropagation();
-    setStarredMatches((prev) =>
-      prev.includes(matchId) ? prev.filter((id) => id !== matchId) : [...prev, matchId],
-    );
-  };
 
   return (
     <Box sx={{ minHeight: '100vh', bgcolor: 'background.default', color: '#ffffff' }}>
@@ -73,8 +49,11 @@ export default function MatchDetailPage(): JSX.Element {
       <Container maxWidth="xs" sx={{ py: 3 }}>
         <MatchDetailView
           matchId={matchId}
-          starred={starredMatches.includes(matchId)}
-          onToggleStar={toggleStar}
+          starred={isStarred(matchId)}
+          onToggleStar={(e) => {
+            e.stopPropagation();
+            toggle(matchId);
+          }}
         />
       </Container>
     </Box>
