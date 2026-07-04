@@ -62,6 +62,11 @@ vi.mock('@fh/ui', () => ({
   MatchScoreboard: () => null,
   MatchTimeline: () => null,
   MatchClock: () => null,
+  LiveEventToast: ({ title, subtitle }: any) => (
+    <>
+      {title} {subtitle}
+    </>
+  ),
   useTimeline: () => ({
     events: [],
     derivedState: { score: { home: 0, away: 0 }, activeSuspensions: [] },

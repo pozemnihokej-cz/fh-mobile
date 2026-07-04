@@ -9,7 +9,6 @@ import {
   CircularProgress,
   Button,
   Snackbar,
-  Alert,
   useTheme,
   alpha,
 } from '@mui/material';
@@ -23,6 +22,7 @@ import {
   MatchScoreboard,
   MatchTimeline,
   MatchClock,
+  LiveEventToast,
   useTimeline,
   useLiveMatchClock,
   useTimelineEventBursts,
@@ -242,34 +242,32 @@ export function MatchDetailView({
         onClose={() => setActiveNotification(null)}
         anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
       >
-        <Alert
-          onClose={() => setActiveNotification(null)}
-          severity={activeNotification?.event.type === 'goal' || activeNotification?.event.type === 'shootout_goal' ? 'success' : 'warning'}
-          icon={
-            activeNotification?.event.type === 'goal' || activeNotification?.event.type === 'shootout_goal'
-              ? <SportsSoccerIcon fontSize="inherit" />
-              : activeNotification?.event.type === 'card'
-                ? <StyleIcon fontSize="inherit" />
-                : <LocalHospitalIcon fontSize="inherit" />
-          }
-          sx={{ width: '100%', fontWeight: 800, alignItems: 'center' }}
-        >
-          {activeNotification && (() => {
-            const ev: any = activeNotification.event;
-            const side = ev.side === 'home' ? (match?.homeClubName ?? match?.homeTeamName) : (match?.awayClubName ?? match?.awayTeamName);
-            // Localized labels: 'card' includes the Czech color name so the fan
-            // sees "KARTA (žlutá)" instead of "KARTA (yellow)". Color comes
-            // from `event.event.card` which carries the operator's full-word
-            // pick (`'green' | 'yellow' | 'red'`) from MatchEventsPage.
-            const cardColorCz: Record<string, string> = { green: 'zelená', yellow: 'žlutá', red: 'červená' };
-            const label = ev.type === 'goal' || ev.type === 'shootout_goal'
-              ? 'GÓL'
-              : ev.type === 'card'
-                ? `KARTA (${cardColorCz[ev.event?.card] ?? ev.event?.card ?? '?'})`
-                : ev.type.toUpperCase();
-            return `${label} ${ev.minute ? `${ev.minute}' ` : ''}— ${side ?? ''} · ${ev.playerName ?? ''}`;
-          })()}
-        </Alert>
+        {activeNotification ? (() => {
+          const ev: any = activeNotification.event;
+          const side = ev.side === 'home' ? (match?.homeClubName ?? match?.homeTeamName) : (match?.awayClubName ?? match?.awayTeamName);
+          const isGoal = ev.type === 'goal' || ev.type === 'shootout_goal';
+          // Localized labels: 'card' includes the Czech color name so the fan
+          // sees "KARTA (žlutá)" instead of "KARTA (yellow)". Color comes from
+          // `event.event.card` (operator's 'green' | 'yellow' | 'red' pick).
+          const cardColorCz: Record<string, string> = { green: 'zelená', yellow: 'žlutá', red: 'červená' };
+          const label = isGoal
+            ? 'GÓL'
+            : ev.type === 'card'
+              ? `KARTA (${cardColorCz[ev.event?.card] ?? ev.event?.card ?? '?'})`
+              : ev.type.toUpperCase();
+          // Box wrapper carries role="alert" + the Snackbar transition ref; the
+          // shared @fh/ui LiveEventToast is the glass banner (fan aesthetic).
+          return (
+            <Box role="alert">
+              <LiveEventToast
+                tone={isGoal ? 'goal' : ev.type === 'card' ? 'card' : 'info'}
+                icon={isGoal ? <SportsSoccerIcon fontSize="inherit" /> : ev.type === 'card' ? <StyleIcon fontSize="inherit" /> : <LocalHospitalIcon fontSize="inherit" />}
+                title={`${label} ${ev.minute ? `${ev.minute}' ` : ''}— ${side ?? ''}`}
+                subtitle={ev.playerName ?? ''}
+              />
+            </Box>
+          );
+        })() : undefined}
       </Snackbar>
     </Box>
   );
