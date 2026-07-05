@@ -89,7 +89,7 @@ export default function TenantLayout(): JSX.Element {
     return (
       <Box
         data-testid="tenant-layout-loading"
-        sx={{ display: 'flex', justifyContent: 'center', py: 6, bgcolor: '#121212', minHeight: '100vh' }}
+        sx={{ display: 'flex', justifyContent: 'center', py: 6, bgcolor: 'transparent', minHeight: '100vh' }}
       >
         <CircularProgress color="success" />
       </Box>

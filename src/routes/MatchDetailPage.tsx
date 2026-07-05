@@ -25,7 +25,7 @@ export default function MatchDetailPage(): JSX.Element {
   }
 
   return (
-    <Box sx={{ minHeight: '100vh', bgcolor: 'background.default', color: '#ffffff' }}>
+    <Box sx={{ minHeight: '100vh', bgcolor: 'transparent', color: '#ffffff' }}>
       {/* Shared @fh/ui sticky glass bar (leading = back affordance) */}
       <StickyGlassHeader
         title="Detail Zápasu"

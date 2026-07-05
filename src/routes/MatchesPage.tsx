@@ -36,14 +36,14 @@ export default function MatchesPage(): JSX.Element {
 
   if (matches === undefined) {
     return (
-      <Box sx={{ display: 'flex', justifyContent: 'center', py: 8, bgcolor: 'background.default', minHeight: '100vh' }}>
+      <Box sx={{ display: 'flex', justifyContent: 'center', py: 8, bgcolor: 'transparent', minHeight: '100vh' }}>
         <CircularProgress color="primary" />
       </Box>
     );
   }
 
   return (
-    <Box sx={{ minHeight: '100vh', bgcolor: 'background.default', color: '#ffffff', pb: 4 }}>
+    <Box sx={{ minHeight: '100vh', bgcolor: 'transparent', color: '#ffffff', pb: 4 }}>
       {/* Page header — shared @fh/ui sticky glass bar (leading = brand badge) */}
       <StickyGlassHeader
         sx={{ mb: 3 }}
