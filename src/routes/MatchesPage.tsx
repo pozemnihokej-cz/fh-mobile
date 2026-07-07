@@ -5,13 +5,12 @@ import { api } from '@convex/_generated/api';
 import {
   Box,
   Container,
-  CircularProgress,
   alpha,
   useTheme,
 } from '@mui/material';
-import { SportsHockey as HockeyIcon } from '@mui/icons-material';
-import { StickyGlassHeader, EmptyState, useStarredIds } from '@fh/ui';
+import { StickyGlassHeader, EmptyState, MatchCardSkeleton, FhIcon, useStarredIds } from '@fh/ui';
 import { MatchCard, type MatchCardData } from '../components/MatchCard';
+import { AsyncBoundary } from '../components/AsyncBoundary';
 import { useTenantContext } from './TenantContext';
 
 /**
@@ -34,16 +33,8 @@ export default function MatchesPage(): JSX.Element {
     return [...(matches as MatchCardData[])].sort((a, b) => b.date - a.date);
   }, [matches]);
 
-  if (matches === undefined) {
-    return (
-      <Box sx={{ display: 'flex', justifyContent: 'center', py: 8, bgcolor: 'transparent', minHeight: '100vh' }}>
-        <CircularProgress color="primary" />
-      </Box>
-    );
-  }
-
   return (
-    <Box sx={{ minHeight: '100vh', bgcolor: 'transparent', color: '#ffffff', pb: 4 }}>
+    <Box sx={{ minHeight: '100vh', bgcolor: 'transparent', color: 'common.white', pb: 4 }}>
       {/* Page header — shared @fh/ui sticky glass bar (leading = brand badge) */}
       <StickyGlassHeader
         sx={{ mb: 3 }}
@@ -62,19 +53,24 @@ export default function MatchesPage(): JSX.Element {
               color: 'primary.main',
             }}
           >
-            <HockeyIcon />
+            <FhIcon name="hockey" />
           </Box>
         }
       />
 
       <Container maxWidth="xs">
-        {sorted.length === 0 ? (
-          <EmptyState
-            icon={<HockeyIcon sx={{ fontSize: 44 }} />}
-            title="Žádné zápasy"
-            description="Zatím nejsou naplánovány žádné zápasy."
-          />
-        ) : (
+        <AsyncBoundary
+          loading={matches === undefined}
+          isEmpty={sorted.length === 0}
+          skeleton={<MatchCardSkeleton count={4} />}
+          empty={
+            <EmptyState
+              icon={<FhIcon name="hockey" sx={{ fontSize: 44 }} />}
+              title="Žádné zápasy"
+              description="Zatím nejsou naplánovány žádné zápasy."
+            />
+          }
+        >
           <Box>
             {sorted.map((m) => (
               <MatchCard
@@ -89,7 +85,7 @@ export default function MatchesPage(): JSX.Element {
               />
             ))}
           </Box>
-        )}
+        </AsyncBoundary>
       </Container>
     </Box>
   );
