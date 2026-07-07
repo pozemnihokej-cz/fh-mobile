@@ -1,7 +1,6 @@
 import { Link, useParams } from 'react-router-dom';
 import { Box, Container, IconButton, Typography, alpha, useTheme } from '@mui/material';
-import { ArrowBack as BackIcon } from '@mui/icons-material';
-import { StickyGlassHeader, useStarredIds } from '@fh/ui';
+import { StickyGlassHeader, FhIcon, focusRing, useStarredIds } from '@fh/ui';
 import { MatchDetailView } from '../components/MatchDetailView';
 
 /**
@@ -18,14 +17,14 @@ export default function MatchDetailPage(): JSX.Element {
 
   if (!matchId) {
     return (
-      <Box sx={{ minHeight: '100vh', bgcolor: '#121212', color: '#ffffff', p: 4 }}>
-        <Typography>Missing match id.</Typography>
+      <Box sx={{ minHeight: '100vh', bgcolor: 'background.default', color: 'common.white', p: 4 }}>
+        <Typography>Chybí ID zápasu.</Typography>
       </Box>
     );
   }
 
   return (
-    <Box sx={{ minHeight: '100vh', bgcolor: 'transparent', color: '#ffffff' }}>
+    <Box sx={{ minHeight: '100vh', bgcolor: 'transparent', color: 'common.white' }}>
       {/* Shared @fh/ui sticky glass bar (leading = back affordance) */}
       <StickyGlassHeader
         title="Detail Zápasu"
@@ -33,16 +32,20 @@ export default function MatchDetailPage(): JSX.Element {
         leading={
           <IconButton
             data-testid="match-detail-back"
+            aria-label="Zpět na zápasy"
             component={Link}
             to=".."
             relative="path"
             sx={{
-              color: '#ffffff',
+              color: 'common.white',
+              width: 44,
+              height: 44,
               bgcolor: alpha(theme.palette.common.white, 0.05),
               '&:hover': { bgcolor: alpha(theme.palette.common.white, 0.1) },
+              ...focusRing(theme),
             }}
           >
-            <BackIcon />
+            <FhIcon name="back" />
           </IconButton>
         }
       />

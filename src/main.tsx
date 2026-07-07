@@ -42,7 +42,7 @@ class ErrorBoundary extends React.Component<
       const isConvexError = this.state.error.message?.includes('CONVEX')
         || this.state.error.message?.includes('Could not find public function');
       return (
-        <Box sx={{ p: 4, textAlign: 'center', minHeight: '100vh', display: 'flex', flexDirection: 'column', justifyContent: 'center', bgcolor: '#121212', color: '#ffffff' }}>
+        <Box sx={{ p: 4, textAlign: 'center', minHeight: '100vh', display: 'flex', flexDirection: 'column', justifyContent: 'center', bgcolor: 'background.default', color: 'common.white' }}>
           <Typography variant="h5" sx={{ fontWeight: 900, mb: 2 }}>
             {isConvexError ? 'Convex backend nedostupný' : 'Nastala chyba'}
           </Typography>

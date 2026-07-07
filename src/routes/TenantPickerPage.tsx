@@ -10,7 +10,7 @@ import {
   alpha,
   useTheme,
 } from '@mui/material';
-import { SportsHockey as HockeyIcon, ArrowForwardIos as ChevronIcon } from '@mui/icons-material';
+import { FhIcon, focusRing } from '@fh/ui';
 import { useTranslation } from '@fh/i18n';
 import { supabase } from '../lib/supabase';
 
@@ -58,7 +58,7 @@ export default function TenantPickerPage(): JSX.Element {
       sx={{
         minHeight: '100vh',
         bgcolor: 'background.default',
-        color: '#ffffff',
+        color: 'common.white',
         py: 6,
         display: 'flex',
         flexDirection: 'column',
@@ -82,7 +82,7 @@ export default function TenantPickerPage(): JSX.Element {
 
       <Container maxWidth="xs" sx={{ position: 'relative', zIndex: 1 }}>
         <Box sx={{ textAlign: 'center', mb: 6 }}>
-          <HockeyIcon sx={{ color: 'primary.main', fontSize: 64, mb: 2, filter: `drop-shadow(0 0 20px ${alpha(theme.palette.primary.main, 0.4)})` }} />
+          <FhIcon name="hockey" sx={{ color: 'primary.main', fontSize: 64, mb: 2, filter: `drop-shadow(0 0 20px ${alpha(theme.palette.primary.main, 0.4)})` }} />
           <Typography
             variant="h4"
             sx={{
@@ -155,7 +155,7 @@ export default function TenantPickerPage(): JSX.Element {
                     alignItems: 'center',
                     width: '100%',
                     padding: '20px 24px',
-                    color: '#ffffff',
+                    color: 'common.white',
                     textDecoration: 'none',
                     bgcolor: alpha(theme.palette.common.white, 0.03),
                     backdropFilter: 'blur(10px)',
@@ -168,17 +168,18 @@ export default function TenantPickerPage(): JSX.Element {
                       borderColor: alpha(theme.palette.primary.main, 0.4),
                       boxShadow: `0 12px 40px ${alpha(theme.palette.common.black, 0.4)}`,
                     },
+                    ...focusRing(theme),
                   }}
                 >
                   <Box sx={{ flex: 1 }}>
-                    <Typography variant="h6" sx={{ fontWeight: 800, color: '#fff', lineHeight: 1.2 }}>
+                    <Typography variant="h6" sx={{ fontWeight: 800, color: 'common.white', lineHeight: 1.2 }}>
                       {row.name}
                     </Typography>
                     <Typography variant="caption" sx={{ color: 'primary.main', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.1em' }}>
                       {row.slug}
                     </Typography>
                   </Box>
-                  <ChevronIcon sx={{ color: alpha(theme.palette.common.white, 0.2), fontSize: 16 }} />
+                  <FhIcon name="chevronRight" sx={{ color: alpha(theme.palette.common.white, 0.2), fontSize: 16 }} />
                 </Paper>
               </ListItem>
             ))}
