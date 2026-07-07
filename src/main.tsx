@@ -17,6 +17,7 @@ import TenantLayout from './routes/TenantLayout';
 import MatchesPage from './routes/MatchesPage';
 import MatchDetailPage from './routes/MatchDetailPage';
 import NotFoundPage from './routes/NotFoundPage';
+import { QueryErrorBoundary } from './components/QueryErrorBoundary';
 
 initI18n();
 
@@ -102,8 +103,22 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
                   <Route index element={<TenantPickerPage />} />
                   <Route path=":slug" element={<TenantLayout />}>
                     <Route index element={<Navigate to="matches" replace />} />
-                    <Route path="matches" element={<MatchesPage />} />
-                    <Route path="matches/:matchId" element={<MatchDetailPage />} />
+                    <Route
+                      path="matches"
+                      element={
+                        <QueryErrorBoundary errorTitle="Zápasy se nepodařilo načíst" errorDescription="Zkontroluj připojení a zkus to znovu." retryLabel="Zkusit znovu">
+                          <MatchesPage />
+                        </QueryErrorBoundary>
+                      }
+                    />
+                    <Route
+                      path="matches/:matchId"
+                      element={
+                        <QueryErrorBoundary errorTitle="Zápas se nepodařilo načíst" errorDescription="Zkontroluj připojení a zkus to znovu." retryLabel="Zkusit znovu">
+                          <MatchDetailPage />
+                        </QueryErrorBoundary>
+                      }
+                    />
                     <Route path="*" element={<NotFoundPage />} />
                   </Route>
                   <Route path="*" element={<NotFoundPage />} />

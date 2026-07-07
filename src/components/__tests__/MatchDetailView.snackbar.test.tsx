@@ -62,6 +62,9 @@ vi.mock('@fh/ui', () => ({
   MatchScoreboard: () => null,
   MatchTimeline: () => null,
   MatchClock: () => null,
+  EmptyState: () => null,
+  MatchCardSkeleton: () => null,
+  FhIcon: () => null,
   LiveEventToast: ({ title, subtitle }: any) => (
     <>
       {title} {subtitle}

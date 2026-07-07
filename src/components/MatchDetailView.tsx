@@ -6,23 +6,19 @@ import {
   Paper,
   Typography,
   Chip,
-  CircularProgress,
   Button,
   Snackbar,
   useTheme,
   alpha,
 } from '@mui/material';
 import {
-  YouTube as YouTubeIcon,
-  SportsSoccer as SportsSoccerIcon,
-  Style as StyleIcon,
-  LocalHospital as LocalHospitalIcon,
-} from '@mui/icons-material';
-import {
   MatchScoreboard,
   MatchTimeline,
   MatchClock,
   LiveEventToast,
+  EmptyState,
+  MatchCardSkeleton,
+  FhIcon,
   useTimeline,
   useLiveMatchClock,
   useTimelineEventBursts,
@@ -103,11 +99,20 @@ export function MatchDetailView({
     });
   }, [match?.date]);
 
-  if (!match) {
+  if (match === undefined) {
     return (
-      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', py: 8 }}>
-        <CircularProgress color="primary" />
+      <Box sx={{ py: 2 }}>
+        <MatchCardSkeleton count={1} />
       </Box>
+    );
+  }
+  if (match === null) {
+    return (
+      <EmptyState
+        icon={<FhIcon name="hockey" sx={{ fontSize: 44 }} />}
+        title="Zápas nenalezen"
+        description="Tento zápas neexistuje nebo byl odstraněn."
+      />
     );
   }
 
@@ -213,7 +218,7 @@ export function MatchDetailView({
             fullWidth
             variant="outlined"
             color="inherit"
-            startIcon={<YouTubeIcon sx={{ color: '#ff0000' }} />}
+            startIcon={<FhIcon name="youtube" />}
             href={`https://www.youtube.com/watch?v=${youtubeVideoId}`}
             target="_blank"
             sx={{
@@ -261,7 +266,7 @@ export function MatchDetailView({
             <Box role="alert">
               <LiveEventToast
                 tone={isGoal ? 'goal' : ev.type === 'card' ? 'card' : 'info'}
-                icon={isGoal ? <SportsSoccerIcon fontSize="inherit" /> : ev.type === 'card' ? <StyleIcon fontSize="inherit" /> : <LocalHospitalIcon fontSize="inherit" />}
+                icon={isGoal ? <FhIcon name="goal" sx={{ fontSize: 'inherit' }} /> : ev.type === 'card' ? <FhIcon name="card" sx={{ fontSize: 'inherit' }} /> : <FhIcon name="injury" sx={{ fontSize: 'inherit' }} />}
                 title={`${label} ${ev.minute ? `${ev.minute}' ` : ''}— ${side ?? ''}`}
                 subtitle={ev.playerName ?? ''}
               />
