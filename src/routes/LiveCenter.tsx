@@ -2,45 +2,37 @@ import { useMemo } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useQuery } from 'convex/react';
 import { api } from '@convex/_generated/api';
-import {
-  Box,
-  Container,
-  Button,
-  alpha,
-  useTheme,
-} from '@mui/material';
+import { Box, Container, Button, alpha, useTheme } from '@mui/material';
 import { StickyGlassHeader, EmptyState, MatchCardSkeleton, FhIcon, focusRing, useStarredIds } from '@fh/ui';
 import { MatchCard, type MatchCardData } from '../components/MatchCard';
 import { AsyncBoundary } from '../components/AsyncBoundary';
 import { useTenantContext } from './TenantContext';
 
 /**
- * CHANGE-055 Spec-AC-01 / Spec-AC-12: matches list at `/<slug>/matches`.
- * Overhauled with premium fancy GUI.
+ * PRD-055 Phase 2 (Spec-AC-04/05): the live-centre at `/<slug>/live`. Reuses the
+ * matches Convex query, filtered to in-progress games, over the shared
+ * AsyncBoundary (skeleton / "nothing live" empty). Real data — no stub.
  */
-export default function MatchesPage(): JSX.Element {
+export default function LiveCenter(): JSX.Element {
   const { tenantId, tenantName } = useTenantContext();
   const navigate = useNavigate();
   const theme = useTheme();
-  const matches = useQuery(
-    api.functions.matches.list,
-    tenantId ? { tenantId } : 'skip',
-  );
+  const matches = useQuery(api.functions.matches.list, tenantId ? { tenantId } : 'skip');
+  const { isStarred, toggle } = useStarredIds('fh_starred_matches');
 
-  const { isStarred, toggle: toggleStar } = useStarredIds('fh_starred_matches');
-
-  const sorted = useMemo<MatchCardData[]>(() => {
+  const live = useMemo<MatchCardData[]>(() => {
     if (!matches) return [];
-    return [...(matches as MatchCardData[])].sort((a, b) => b.date - a.date);
+    return (matches as MatchCardData[])
+      .filter((m) => m.status === 'live')
+      .sort((a, b) => b.date - a.date);
   }, [matches]);
 
   return (
     <Box sx={{ minHeight: '100vh', bgcolor: 'transparent', color: 'common.white', pb: 4 }}>
-      {/* Page header — shared @fh/ui sticky glass bar (leading = brand badge) */}
       <StickyGlassHeader
         sx={{ mb: 3 }}
-        title={tenantName || 'Zápasy'}
-        subtitle="Program a výsledky"
+        title="Živě"
+        subtitle={tenantName || 'Právě hrané zápasy'}
         leading={
           <Box
             sx={{
@@ -50,23 +42,22 @@ export default function MatchesPage(): JSX.Element {
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              bgcolor: alpha(theme.palette.primary.main, 0.1),
-              color: 'primary.main',
+              bgcolor: alpha(theme.palette.error.main, 0.15),
+              color: 'error.main',
             }}
           >
-            <FhIcon name="hockey" />
+            <FhIcon name="score" />
           </Box>
         }
         action={
           <Button
             component={Link}
-            to="../live"
+            to="../matches"
             relative="path"
             size="small"
-            startIcon={<FhIcon name="score" inline />}
             sx={{ color: 'common.white', fontWeight: 800, borderRadius: '10px', ...focusRing(theme) }}
           >
-            Živě
+            Zápasy
           </Button>
         }
       />
@@ -74,27 +65,27 @@ export default function MatchesPage(): JSX.Element {
       <Container maxWidth="xs">
         <AsyncBoundary
           loading={matches === undefined}
-          isEmpty={sorted.length === 0}
-          skeleton={<MatchCardSkeleton count={4} />}
+          isEmpty={live.length === 0}
+          skeleton={<MatchCardSkeleton count={2} />}
           empty={
             <EmptyState
-              icon={<FhIcon name="hockey" sx={{ fontSize: 44 }} />}
-              title="Žádné zápasy"
-              description="Zatím nejsou naplánovány žádné zápasy."
+              icon={<FhIcon name="score" sx={{ fontSize: 44 }} />}
+              title="Teď se nehraje"
+              description="Až začne živý zápas, uvidíš ho tady."
             />
           }
         >
           <Box>
-            {sorted.map((m) => (
+            {live.map((m) => (
               <MatchCard
                 key={m._id}
                 match={m}
                 isStarred={isStarred(m.supabaseId)}
                 onToggleStar={(e) => {
                   e.stopPropagation();
-                  toggleStar(m.supabaseId);
+                  toggle(m.supabaseId);
                 }}
-                onClick={() => navigate(m.supabaseId)}
+                onClick={() => navigate(`../matches/${m.supabaseId}`, { relative: 'path' })}
               />
             ))}
           </Box>

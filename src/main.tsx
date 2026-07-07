@@ -16,6 +16,7 @@ import TenantPickerPage from './routes/TenantPickerPage';
 import TenantLayout from './routes/TenantLayout';
 import MatchesPage from './routes/MatchesPage';
 import MatchDetailPage from './routes/MatchDetailPage';
+import LiveCenter from './routes/LiveCenter';
 import NotFoundPage from './routes/NotFoundPage';
 import { QueryErrorBoundary } from './components/QueryErrorBoundary';
 
@@ -116,6 +117,14 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
                       element={
                         <QueryErrorBoundary errorTitle="Zápas se nepodařilo načíst" errorDescription="Zkontroluj připojení a zkus to znovu." retryLabel="Zkusit znovu">
                           <MatchDetailPage />
+                        </QueryErrorBoundary>
+                      }
+                    />
+                    <Route
+                      path="live"
+                      element={
+                        <QueryErrorBoundary errorTitle="Živé zápasy se nepodařilo načíst" errorDescription="Zkontroluj připojení a zkus to znovu." retryLabel="Zkusit znovu">
+                          <LiveCenter />
                         </QueryErrorBoundary>
                       }
                     />
