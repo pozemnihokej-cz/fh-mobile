@@ -17,6 +17,16 @@ import TenantLayout from './routes/TenantLayout';
 import MatchesPage from './routes/MatchesPage';
 import MatchDetailPage from './routes/MatchDetailPage';
 import LiveCenter from './routes/LiveCenter';
+import StandingsPage from './routes/StandingsPage';
+import SchedulePage from './routes/SchedulePage';
+import SearchPage from './routes/SearchPage';
+import ClubDetailPage from './routes/ClubDetailPage';
+import PlayerDetailPage from './routes/PlayerDetailPage';
+import LineupPage from './routes/LineupPage';
+import OnboardingPage from './routes/OnboardingPage';
+import NewsPage from './routes/NewsPage';
+import NotificationsPage from './routes/NotificationsPage';
+import ProfilePage from './routes/ProfilePage';
 import NotFoundPage from './routes/NotFoundPage';
 import { QueryErrorBoundary } from './components/QueryErrorBoundary';
 
@@ -128,6 +138,17 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
                         </QueryErrorBoundary>
                       }
                     />
+                    {/* PRD-055 Phase 2: supabase-js fan screens (own AsyncBoundary error path) */}
+                    <Route path="matches/:matchId/lineup" element={<LineupPage />} />
+                    <Route path="standings" element={<StandingsPage />} />
+                    <Route path="schedule" element={<SchedulePage />} />
+                    <Route path="search" element={<SearchPage />} />
+                    <Route path="clubs/:clubId" element={<ClubDetailPage />} />
+                    <Route path="players/:personId" element={<PlayerDetailPage />} />
+                    <Route path="onboarding" element={<OnboardingPage />} />
+                    <Route path="news" element={<NewsPage />} />
+                    <Route path="notifications" element={<NotificationsPage />} />
+                    <Route path="profile" element={<ProfilePage />} />
                     <Route path="*" element={<NotFoundPage />} />
                   </Route>
                   <Route path="*" element={<NotFoundPage />} />

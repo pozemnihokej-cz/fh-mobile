@@ -35,7 +35,7 @@ export default function MatchesPage(): JSX.Element {
   }, [matches]);
 
   return (
-    <Box sx={{ minHeight: '100vh', bgcolor: 'transparent', color: 'common.white', pb: 4 }}>
+    <Box sx={{ minHeight: '100vh', bgcolor: 'transparent', color: 'common.white', pb: 12 }}>
       {/* Page header — shared @fh/ui sticky glass bar (leading = brand badge) */}
       <StickyGlassHeader
         sx={{ mb: 3 }}

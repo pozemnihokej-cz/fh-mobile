@@ -28,7 +28,7 @@ export default function LiveCenter(): JSX.Element {
   }, [matches]);
 
   return (
-    <Box sx={{ minHeight: '100vh', bgcolor: 'transparent', color: 'common.white', pb: 4 }}>
+    <Box sx={{ minHeight: '100vh', bgcolor: 'transparent', color: 'common.white', pb: 12 }}>
       <StickyGlassHeader
         sx={{ mb: 3 }}
         title="Živě"
