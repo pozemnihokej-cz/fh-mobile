@@ -6,29 +6,19 @@ import {
   Paper,
   Typography,
   Chip,
-  IconButton,
-  Grid,
-  Avatar,
-  Divider,
-  CircularProgress,
   Button,
   Snackbar,
-  Alert,
   useTheme,
   alpha,
-  Stack,
 } from '@mui/material';
 import {
-  Star as StarIcon,
-  StarBorder as StarBorderIcon,
-  YouTube as YouTubeIcon,
-  SportsSoccer as SportsSoccerIcon,
-  Style as StyleIcon,
-  LocalHospital as LocalHospitalIcon,
-} from '@mui/icons-material';
-import {
+  MatchScoreboard,
   MatchTimeline,
   MatchClock,
+  LiveEventToast,
+  EmptyState,
+  MatchCardSkeleton,
+  FhIcon,
   useTimeline,
   useLiveMatchClock,
   useTimelineEventBursts,
@@ -109,11 +99,20 @@ export function MatchDetailView({
     });
   }, [match?.date]);
 
-  if (!match) {
+  if (match === undefined) {
     return (
-      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', py: 8 }}>
-        <CircularProgress color="primary" />
+      <Box sx={{ py: 2 }}>
+        <MatchCardSkeleton count={1} />
       </Box>
+    );
+  }
+  if (match === null) {
+    return (
+      <EmptyState
+        icon={<FhIcon name="hockey" sx={{ fontSize: 44 }} />}
+        title="Zápas nenalezen"
+        description="Tento zápas neexistuje nebo byl odstraněn."
+      />
     );
   }
 
@@ -122,128 +121,44 @@ export function MatchDetailView({
 
   return (
     <Box>
-      {/* Detail scoreboard header */}
-      <Paper
-        elevation={0}
-        sx={{
-          p: 3,
-          mb: 4,
-          bgcolor: isLive ? alpha(theme.palette.error.main, 0.08) : alpha(theme.palette.common.white, 0.03),
-          borderRadius: '32px',
-          border: `1px solid ${alpha(theme.palette.common.white, 0.06)}`,
-          backdropFilter: 'blur(20px)',
-          boxShadow: '0 20px 40px rgba(0,0,0,0.4)',
-          textAlign: 'center',
-          position: 'relative',
-          overflow: 'hidden',
-        }}
-      >
-        {/* Decorative background glow */}
-        <Box
-          sx={{
-            position: 'absolute',
-            top: '-20%',
-            left: '50%',
-            transform: 'translateX(-50%)',
-            width: '80%',
-            height: '100%',
-            background: `radial-gradient(circle, ${alpha(isLive ? theme.palette.error.main : theme.palette.primary.main, 0.15)} 0%, transparent 70%)`,
-            zIndex: 0,
-            pointerEvents: 'none',
-          }}
+      {/* Detail scoreboard header — shared @fh/ui MatchScoreboard; the live clock
+          / status chip stays app-owned (coupled to the live feed) via `clock`. */}
+      <Box sx={{ mb: 4 }}>
+        <MatchScoreboard
+          live={isLive}
+          league={match.leagueName}
+          home={{ name: match.homeClubName ?? match.homeTeamName, logo: match.homeClubLogo ?? match.homeTeamLogo }}
+          away={{ name: match.awayClubName ?? match.awayTeamName, logo: match.awayClubLogo ?? match.awayTeamLogo }}
+          score={{ home: derivedState.score.home, away: derivedState.score.away }}
+          dateLabel={matchDateStr}
+          location={match.location}
+          starred={starred}
+          onToggleStar={onToggleStar}
+          clock={
+            isLive ? (
+              <MatchClock
+                seconds={elapsed}
+                phase={phase}
+                isRunning={isRunning}
+                colonVisible={colonVisible}
+                variant="fancy"
+              />
+            ) : (
+              <Chip
+                label={match.status === 'completed' ? 'KONEC ZÁPASU' : 'NAPLÁNOVÁNO'}
+                sx={{
+                  bgcolor: alpha(theme.palette.common.white, 0.1),
+                  color: '#fff',
+                  fontWeight: 900,
+                  letterSpacing: '0.05em',
+                  fontSize: '0.65rem',
+                  height: 24,
+                }}
+              />
+            )
+          }
         />
-
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1, position: 'relative', zIndex: 1 }}>
-          <Typography variant="caption" sx={{ color: 'primary.main', fontWeight: 900, letterSpacing: '0.1em' }}>
-            {match.leagueName || 'LIGA'}
-          </Typography>
-          <IconButton
-            size="small"
-            onClick={onToggleStar}
-            sx={{ color: starred ? 'primary.main' : alpha(theme.palette.common.white, 0.2) }}
-          >
-            {starred ? <StarIcon /> : <StarBorderIcon />}
-          </IconButton>
-        </Box>
-
-        <Grid container alignItems="center" sx={{ my: 2, position: 'relative', zIndex: 1 }}>
-          <Grid item xs={4} sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-            <Avatar
-              src={(match.homeClubLogo ?? match.homeTeamLogo) || undefined}
-              sx={{ width: 64, height: 64, mb: 1.5, bgcolor: alpha(theme.palette.common.white, 0.05), boxShadow: '0 8px 24px rgba(0,0,0,0.3)', border: `2px solid ${alpha(theme.palette.common.white, 0.1)}` }}
-            >
-              {(match.homeClubName ?? match.homeTeamName)[0]}
-            </Avatar>
-            <Typography variant="subtitle2" sx={{ fontWeight: 900, color: '#fff' }}>
-              {match.homeClubName ?? match.homeTeamName}
-            </Typography>
-          </Grid>
-
-          <Grid item xs={4} sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-            <Typography variant="h2" sx={{ fontWeight: 950, color: '#fff', letterSpacing: '-3px', lineHeight: 1 }}>
-              {derivedState.score.home} : {derivedState.score.away}
-            </Typography>
-
-            <Box sx={{ mt: 2 }}>
-              {isLive ? (
-                <MatchClock
-                  seconds={elapsed}
-                  phase={phase}
-                  isRunning={isRunning}
-                  colonVisible={colonVisible}
-                  variant="fancy"
-                />
-              ) : (
-                <Chip
-                  label={match.status === 'completed' ? 'KONEC ZÁPASU' : 'NAPLÁNOVÁNO'}
-                  sx={{
-                    bgcolor: alpha(theme.palette.common.white, 0.1),
-                    color: '#fff',
-                    fontWeight: 900,
-                    letterSpacing: '0.05em',
-                    fontSize: '0.65rem',
-                    height: 24,
-                  }}
-                />
-              )}
-            </Box>
-          </Grid>
-
-          <Grid item xs={4} sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-            <Avatar
-              src={(match.awayClubLogo ?? match.awayTeamLogo) || undefined}
-              sx={{ width: 64, height: 64, mb: 1.5, bgcolor: alpha(theme.palette.common.white, 0.05), boxShadow: '0 8px 24px rgba(0,0,0,0.3)', border: `2px solid ${alpha(theme.palette.common.white, 0.1)}` }}
-            >
-              {(match.awayClubName ?? match.awayTeamName)[0]}
-            </Avatar>
-            <Typography variant="subtitle2" sx={{ fontWeight: 900, color: '#fff' }}>
-              {match.awayClubName ?? match.awayTeamName}
-            </Typography>
-          </Grid>
-        </Grid>
-
-        <Divider sx={{ my: 3, borderColor: alpha(theme.palette.common.white, 0.06), position: 'relative', zIndex: 1 }} />
-
-        <Stack direction="row" spacing={2} justifyContent="center" sx={{ position: 'relative', zIndex: 1 }}>
-          <Box>
-            <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block', fontWeight: 700 }}>
-              DATUM A ČAS
-            </Typography>
-            <Typography variant="caption" sx={{ color: '#fff', fontWeight: 800 }}>
-              {matchDateStr}
-            </Typography>
-          </Box>
-          <Box sx={{ width: 1, height: 'auto', bgcolor: alpha(theme.palette.common.white, 0.06) }} />
-          <Box>
-            <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block', fontWeight: 700 }}>
-              MÍSTO KONÁNÍ
-            </Typography>
-            <Typography variant="caption" sx={{ color: '#fff', fontWeight: 800 }}>
-              {match.location || 'Není uvedeno'}
-            </Typography>
-          </Box>
-        </Stack>
-      </Paper>
+      </Box>
 
       {/* Timeline Section */}
       <Box sx={{ mb: 4 }}>
@@ -303,7 +218,7 @@ export function MatchDetailView({
             fullWidth
             variant="outlined"
             color="inherit"
-            startIcon={<YouTubeIcon sx={{ color: '#ff0000' }} />}
+            startIcon={<FhIcon name="youtube" />}
             href={`https://www.youtube.com/watch?v=${youtubeVideoId}`}
             target="_blank"
             sx={{
@@ -332,34 +247,32 @@ export function MatchDetailView({
         onClose={() => setActiveNotification(null)}
         anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
       >
-        <Alert
-          onClose={() => setActiveNotification(null)}
-          severity={activeNotification?.event.type === 'goal' || activeNotification?.event.type === 'shootout_goal' ? 'success' : 'warning'}
-          icon={
-            activeNotification?.event.type === 'goal' || activeNotification?.event.type === 'shootout_goal'
-              ? <SportsSoccerIcon fontSize="inherit" />
-              : activeNotification?.event.type === 'card'
-                ? <StyleIcon fontSize="inherit" />
-                : <LocalHospitalIcon fontSize="inherit" />
-          }
-          sx={{ width: '100%', fontWeight: 800, alignItems: 'center' }}
-        >
-          {activeNotification && (() => {
-            const ev: any = activeNotification.event;
-            const side = ev.side === 'home' ? (match?.homeClubName ?? match?.homeTeamName) : (match?.awayClubName ?? match?.awayTeamName);
-            // Localized labels: 'card' includes the Czech color name so the fan
-            // sees "KARTA (žlutá)" instead of "KARTA (yellow)". Color comes
-            // from `event.event.card` which carries the operator's full-word
-            // pick (`'green' | 'yellow' | 'red'`) from MatchEventsPage.
-            const cardColorCz: Record<string, string> = { green: 'zelená', yellow: 'žlutá', red: 'červená' };
-            const label = ev.type === 'goal' || ev.type === 'shootout_goal'
-              ? 'GÓL'
-              : ev.type === 'card'
-                ? `KARTA (${cardColorCz[ev.event?.card] ?? ev.event?.card ?? '?'})`
-                : ev.type.toUpperCase();
-            return `${label} ${ev.minute ? `${ev.minute}' ` : ''}— ${side ?? ''} · ${ev.playerName ?? ''}`;
-          })()}
-        </Alert>
+        {activeNotification ? (() => {
+          const ev: any = activeNotification.event;
+          const side = ev.side === 'home' ? (match?.homeClubName ?? match?.homeTeamName) : (match?.awayClubName ?? match?.awayTeamName);
+          const isGoal = ev.type === 'goal' || ev.type === 'shootout_goal';
+          // Localized labels: 'card' includes the Czech color name so the fan
+          // sees "KARTA (žlutá)" instead of "KARTA (yellow)". Color comes from
+          // `event.event.card` (operator's 'green' | 'yellow' | 'red' pick).
+          const cardColorCz: Record<string, string> = { green: 'zelená', yellow: 'žlutá', red: 'červená' };
+          const label = isGoal
+            ? 'GÓL'
+            : ev.type === 'card'
+              ? `KARTA (${cardColorCz[ev.event?.card] ?? ev.event?.card ?? '?'})`
+              : ev.type.toUpperCase();
+          // Box wrapper carries role="alert" + the Snackbar transition ref; the
+          // shared @fh/ui LiveEventToast is the glass banner (fan aesthetic).
+          return (
+            <Box role="alert">
+              <LiveEventToast
+                tone={isGoal ? 'goal' : ev.type === 'card' ? 'card' : 'info'}
+                icon={isGoal ? <FhIcon name="goal" sx={{ fontSize: 'inherit' }} /> : ev.type === 'card' ? <FhIcon name="card" sx={{ fontSize: 'inherit' }} /> : <FhIcon name="injury" sx={{ fontSize: 'inherit' }} />}
+                title={`${label} ${ev.minute ? `${ev.minute}' ` : ''}— ${side ?? ''}`}
+                subtitle={ev.playerName ?? ''}
+              />
+            </Box>
+          );
+        })() : undefined}
       </Snackbar>
     </Box>
   );

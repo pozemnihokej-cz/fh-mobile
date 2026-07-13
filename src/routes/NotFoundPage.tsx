@@ -20,8 +20,8 @@ export default function NotFoundPage(): JSX.Element {
         alignItems: 'center',
         textAlign: 'center',
         p: 4,
-        bgcolor: '#121212',
-        color: '#ffffff',
+        bgcolor: 'background.default',
+        color: 'common.white',
       }}
     >
       <Typography variant="h5" sx={{ fontWeight: 900, mb: 2 }}>
@@ -29,7 +29,7 @@ export default function NotFoundPage(): JSX.Element {
       </Typography>
       <Typography
         variant="body2"
-        sx={{ color: 'rgba(255,255,255,0.6)', mb: 3, maxWidth: 400 }}
+        sx={{ color: 'text.secondary', mb: 3, maxWidth: 400 }}
       >
         {t('mobile.routing.notFound.message')}
       </Typography>

@@ -1,7 +1,6 @@
-import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { Box, Container, IconButton, Paper, Typography, alpha, useTheme } from '@mui/material';
-import { ArrowBack as BackIcon } from '@mui/icons-material';
+import { Box, Container, IconButton, Typography, alpha, useTheme } from '@mui/material';
+import { StickyGlassHeader, FhIcon, focusRing, useStarredIds } from '@fh/ui';
 import { MatchDetailView } from '../components/MatchDetailView';
 
 /**
@@ -14,84 +13,50 @@ import { MatchDetailView } from '../components/MatchDetailView';
 export default function MatchDetailPage(): JSX.Element {
   const { matchId } = useParams<{ matchId: string }>();
   const theme = useTheme();
-
-  const [starredMatches, setStarredMatches] = useState<string[]>(() => {
-    try {
-      const saved = typeof window !== 'undefined' ? window.localStorage.getItem('fh_starred_matches') : null;
-      return saved ? (JSON.parse(saved) as string[]) : [];
-    } catch {
-      return [];
-    }
-  });
-
-  useEffect(() => {
-    try {
-      window.localStorage.setItem('fh_starred_matches', JSON.stringify(starredMatches));
-    } catch {
-      /* storage disabled */
-    }
-  }, [starredMatches]);
+  const { isStarred, toggle } = useStarredIds('fh_starred_matches');
 
   if (!matchId) {
     return (
-      <Box sx={{ minHeight: '100vh', bgcolor: '#121212', color: '#ffffff', p: 4 }}>
-        <Typography>Missing match id.</Typography>
+      <Box sx={{ minHeight: '100vh', bgcolor: 'background.default', color: 'common.white', p: 4 }}>
+        <Typography>Chybí ID zápasu.</Typography>
       </Box>
     );
   }
 
-  const toggleStar = (e: React.MouseEvent): void => {
-    e.stopPropagation();
-    setStarredMatches((prev) =>
-      prev.includes(matchId) ? prev.filter((id) => id !== matchId) : [...prev, matchId],
-    );
-  };
-
   return (
-    <Box sx={{ minHeight: '100vh', bgcolor: 'background.default', color: '#ffffff' }}>
-      <Paper
-        elevation={0}
-        sx={{
-          py: 2,
-          position: 'sticky',
-          top: 0,
-          zIndex: 1100,
-          bgcolor: alpha(theme.palette.background.default, 0.8),
-          backdropFilter: 'blur(20px)',
-          borderBottom: `1px solid ${alpha(theme.palette.divider, 0.1)}`,
-          borderRadius: 0,
-        }}
-      >
-        <Container maxWidth="xs" sx={{ display: 'flex', alignItems: 'center' }}>
+    <Box sx={{ minHeight: '100vh', bgcolor: 'transparent', color: 'common.white' }}>
+      {/* Shared @fh/ui sticky glass bar (leading = back affordance) */}
+      <StickyGlassHeader
+        title="Detail Zápasu"
+        subtitle="Statistiky a průběh"
+        leading={
           <IconButton
             data-testid="match-detail-back"
+            aria-label="Zpět na zápasy"
             component={Link}
             to=".."
             relative="path"
             sx={{
-              color: '#ffffff',
-              mr: 1,
+              color: 'common.white',
+              width: 44,
+              height: 44,
               bgcolor: alpha(theme.palette.common.white, 0.05),
-              '&:hover': { bgcolor: alpha(theme.palette.common.white, 0.1) }
+              '&:hover': { bgcolor: alpha(theme.palette.common.white, 0.1) },
+              ...focusRing(theme),
             }}
           >
-            <BackIcon />
+            <FhIcon name="back" />
           </IconButton>
-          <Box>
-            <Typography variant="h6" sx={{ fontWeight: 900, lineHeight: 1.1 }}>
-              Detail Zápasu
-            </Typography>
-            <Typography variant="caption" sx={{ color: 'primary.main', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.1em' }}>
-              Statistiky a průběh
-            </Typography>
-          </Box>
-        </Container>
-      </Paper>
+        }
+      />
       <Container maxWidth="xs" sx={{ py: 3 }}>
         <MatchDetailView
           matchId={matchId}
-          starred={starredMatches.includes(matchId)}
-          onToggleStar={toggleStar}
+          starred={isStarred(matchId)}
+          onToggleStar={(e) => {
+            e.stopPropagation();
+            toggle(matchId);
+          }}
         />
       </Container>
     </Box>

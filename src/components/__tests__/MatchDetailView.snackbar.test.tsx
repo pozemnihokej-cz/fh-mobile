@@ -59,8 +59,17 @@ let burstState: {
 } = { bursts: [], current: null, latest: null, home: null, guest: null };
 
 vi.mock('@fh/ui', () => ({
+  MatchScoreboard: () => null,
   MatchTimeline: () => null,
   MatchClock: () => null,
+  EmptyState: () => null,
+  MatchCardSkeleton: () => null,
+  FhIcon: () => null,
+  LiveEventToast: ({ title, subtitle }: any) => (
+    <>
+      {title} {subtitle}
+    </>
+  ),
   useTimeline: () => ({
     events: [],
     derivedState: { score: { home: 0, away: 0 }, activeSuspensions: [] },

@@ -16,7 +16,19 @@ import TenantPickerPage from './routes/TenantPickerPage';
 import TenantLayout from './routes/TenantLayout';
 import MatchesPage from './routes/MatchesPage';
 import MatchDetailPage from './routes/MatchDetailPage';
+import LiveCenter from './routes/LiveCenter';
+import StandingsPage from './routes/StandingsPage';
+import SchedulePage from './routes/SchedulePage';
+import SearchPage from './routes/SearchPage';
+import ClubDetailPage from './routes/ClubDetailPage';
+import PlayerDetailPage from './routes/PlayerDetailPage';
+import LineupPage from './routes/LineupPage';
+import OnboardingPage from './routes/OnboardingPage';
+import NewsPage from './routes/NewsPage';
+import NotificationsPage from './routes/NotificationsPage';
+import ProfilePage from './routes/ProfilePage';
 import NotFoundPage from './routes/NotFoundPage';
+import { QueryErrorBoundary } from './components/QueryErrorBoundary';
 
 initI18n();
 
@@ -41,7 +53,7 @@ class ErrorBoundary extends React.Component<
       const isConvexError = this.state.error.message?.includes('CONVEX')
         || this.state.error.message?.includes('Could not find public function');
       return (
-        <Box sx={{ p: 4, textAlign: 'center', minHeight: '100vh', display: 'flex', flexDirection: 'column', justifyContent: 'center', bgcolor: '#121212', color: '#ffffff' }}>
+        <Box sx={{ p: 4, textAlign: 'center', minHeight: '100vh', display: 'flex', flexDirection: 'column', justifyContent: 'center', bgcolor: 'background.default', color: 'common.white' }}>
           <Typography variant="h5" sx={{ fontWeight: 900, mb: 2 }}>
             {isConvexError ? 'Convex backend nedostupný' : 'Nastala chyba'}
           </Typography>
@@ -102,8 +114,41 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
                   <Route index element={<TenantPickerPage />} />
                   <Route path=":slug" element={<TenantLayout />}>
                     <Route index element={<Navigate to="matches" replace />} />
-                    <Route path="matches" element={<MatchesPage />} />
-                    <Route path="matches/:matchId" element={<MatchDetailPage />} />
+                    <Route
+                      path="matches"
+                      element={
+                        <QueryErrorBoundary errorTitle="Zápasy se nepodařilo načíst" errorDescription="Zkontroluj připojení a zkus to znovu." retryLabel="Zkusit znovu">
+                          <MatchesPage />
+                        </QueryErrorBoundary>
+                      }
+                    />
+                    <Route
+                      path="matches/:matchId"
+                      element={
+                        <QueryErrorBoundary errorTitle="Zápas se nepodařilo načíst" errorDescription="Zkontroluj připojení a zkus to znovu." retryLabel="Zkusit znovu">
+                          <MatchDetailPage />
+                        </QueryErrorBoundary>
+                      }
+                    />
+                    <Route
+                      path="live"
+                      element={
+                        <QueryErrorBoundary errorTitle="Živé zápasy se nepodařilo načíst" errorDescription="Zkontroluj připojení a zkus to znovu." retryLabel="Zkusit znovu">
+                          <LiveCenter />
+                        </QueryErrorBoundary>
+                      }
+                    />
+                    {/* PRD-055 Phase 2: supabase-js fan screens (own AsyncBoundary error path) */}
+                    <Route path="matches/:matchId/lineup" element={<LineupPage />} />
+                    <Route path="standings" element={<StandingsPage />} />
+                    <Route path="schedule" element={<SchedulePage />} />
+                    <Route path="search" element={<SearchPage />} />
+                    <Route path="clubs/:clubId" element={<ClubDetailPage />} />
+                    <Route path="players/:personId" element={<PlayerDetailPage />} />
+                    <Route path="onboarding" element={<OnboardingPage />} />
+                    <Route path="news" element={<NewsPage />} />
+                    <Route path="notifications" element={<NotificationsPage />} />
+                    <Route path="profile" element={<ProfilePage />} />
                     <Route path="*" element={<NotFoundPage />} />
                   </Route>
                   <Route path="*" element={<NotFoundPage />} />

@@ -6,6 +6,7 @@ import { resolveTenantBySlug, type ResolvedTenant } from '../lib/tenantBySlug';
 import { useUrlTenantOverride } from '../lib/useUrlTenantOverride';
 import { supabase } from '../lib/supabase';
 import { TenantContext } from './TenantContext';
+import { FanBottomNav } from '../components/FanBottomNav';
 import NotFoundPage from './NotFoundPage';
 
 type ResolutionState =
@@ -89,7 +90,7 @@ export default function TenantLayout(): JSX.Element {
     return (
       <Box
         data-testid="tenant-layout-loading"
-        sx={{ display: 'flex', justifyContent: 'center', py: 6, bgcolor: '#121212', minHeight: '100vh' }}
+        sx={{ display: 'flex', justifyContent: 'center', py: 6, bgcolor: 'transparent', minHeight: '100vh' }}
       >
         <CircularProgress color="success" />
       </Box>
@@ -103,6 +104,7 @@ export default function TenantLayout(): JSX.Element {
   return (
     <TenantContext.Provider value={contextValue}>
       <Outlet />
+      <FanBottomNav />
     </TenantContext.Provider>
   );
 }
