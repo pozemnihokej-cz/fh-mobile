@@ -16,6 +16,18 @@ import { TenantContext } from '../TenantContext';
 const tr = (key: string): string => i18n.t(key);
 
 vi.mock('../../lib/supabase', () => ({ supabase: {} }));
+// PRD-034: ProfilePage is now auth-aware (no longer a stub). Anon useAuth so it
+// renders the signed-out AuthForm without needing a real AuthProvider.
+vi.mock('@fh/auth', () => ({
+  useAuth: () => ({
+    user: null,
+    isAuthenticated: false,
+    token: null,
+    signIn: vi.fn(),
+    signUp: vi.fn(),
+    signOut: vi.fn(),
+  }),
+}));
 vi.mock('../../lib/adapters/standings', () => ({ fetchStandings: vi.fn() }));
 vi.mock('../../lib/adapters/schedule', () => ({ fetchSchedule: vi.fn() }));
 vi.mock('../../lib/adapters/lineup', () => ({ fetchLineup: vi.fn() }));
@@ -212,9 +224,11 @@ describe('Stub screens — designed EmptyState (AC-05)', () => {
     expect(screen.getByTestId('notifications-screen')).toBeInTheDocument();
     expect(screen.getByText(tr('mobile.fan.notifications.empty'))).toBeInTheDocument();
   });
-  it('Profile renders its EmptyState', () => {
+  it('Profile (signed-out) renders the register/login form (PRD-034 AC-13)', () => {
     render(<MemoryRouter><ProfilePage /></MemoryRouter>);
     expect(screen.getByTestId('profile-screen')).toBeInTheDocument();
-    expect(screen.getByText(tr('mobile.fan.profile.empty'))).toBeInTheDocument();
+    // No longer a stub — the signed-out surface is the auth form, no login wall.
+    expect(screen.getByTestId('auth-submit')).toBeInTheDocument();
+    expect(screen.getByText(tr('mobile.fan.profile.signInTitle'))).toBeInTheDocument();
   });
 });
