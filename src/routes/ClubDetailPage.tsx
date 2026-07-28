@@ -7,6 +7,7 @@ import { FanListSkeleton } from '../components/FanListSkeleton';
 import { useAsyncData } from '../lib/useAsyncData';
 import { supabase } from '../lib/supabase';
 import { fetchClubDetail } from '../lib/adapters/clubDetail';
+import { useFanPreferences } from '../lib/useFanPreferences';
 
 /**
  * PRD-055 Phase 2 (Spec-AC-04/05): club profile at `/<slug>/clubs/:clubId`.
@@ -18,12 +19,15 @@ export default function ClubDetailPage(): JSX.Element {
   const { t } = useTranslation();
   const white = theme.palette.common.white;
 
+  const { isClubSaved, toggleClub } = useFanPreferences();
+
   const { data, error, loading, refetch } = useAsyncData(
     () => fetchClubDetail(supabase, clubId as string),
     [clubId],
     Boolean(clubId),
   );
   const club = data ?? null;
+  const following = clubId ? isClubSaved(clubId) : false;
 
   return (
     <Box sx={{ minHeight: '100vh', bgcolor: 'transparent', color: 'common.white', pb: 12 }}>
@@ -41,6 +45,25 @@ export default function ClubDetailPage(): JSX.Element {
           >
             <FhIcon name="back" />
           </Button>
+        }
+        action={
+          clubId ? (
+            <Button
+              data-testid="club-subscribe"
+              aria-pressed={following}
+              onClick={() => toggleClub(clubId)}
+              size="small"
+              startIcon={<FhIcon name={following ? 'star' : 'starOutline'} inline />}
+              sx={{
+                color: following ? 'primary.main' : 'common.white',
+                fontWeight: 800,
+                borderRadius: '10px',
+                ...focusRing(theme),
+              }}
+            >
+              {following ? t('mobile.fan.subscribe.clubOn') : t('mobile.fan.subscribe.club')}
+            </Button>
+          ) : undefined
         }
       />
 

@@ -1,5 +1,5 @@
-import { Box, Container, Typography, Avatar, Stack, alpha, useTheme } from '@mui/material';
-import { StickyGlassHeader, EmptyState, FhIcon, typeScale } from '@fh/ui';
+import { Box, Container, Typography, Avatar, Stack, Button, alpha, useTheme } from '@mui/material';
+import { StickyGlassHeader, EmptyState, FhIcon, focusRing, typeScale } from '@fh/ui';
 import { useTranslation } from '@fh/i18n';
 import { AsyncBoundary } from '../components/AsyncBoundary';
 import { FanListSkeleton } from '../components/FanListSkeleton';
@@ -7,6 +7,7 @@ import { useAsyncData } from '../lib/useAsyncData';
 import { supabase } from '../lib/supabase';
 import { fetchStandings } from '../lib/adapters/standings';
 import { useTenantContext } from './TenantContext';
+import { useFanPreferences } from '../lib/useFanPreferences';
 
 /**
  * PRD-055 Phase 2 (Spec-AC-04/05): league table at `/<slug>/standings`, computed
@@ -17,6 +18,14 @@ export default function StandingsPage(): JSX.Element {
   const theme = useTheme();
   const { t } = useTranslation();
   const white = theme.palette.common.white;
+
+  const { isLeagueSaved, toggleLeague } = useFanPreferences();
+  // The redesigned app has no distinct "league" entity/detail screen — the
+  // Standings table IS the tenant's competition view. So the league a fan
+  // follows here is keyed by the resolved tenantId (the competition the table
+  // represents). Flagged as the single awkward placement (no per-league id).
+  const leagueKey = tenantId ?? null;
+  const followingLeague = leagueKey ? isLeagueSaved(leagueKey) : false;
 
   const { data, error, loading, refetch } = useAsyncData(
     () => fetchStandings(supabase, tenantId as string),
@@ -46,6 +55,25 @@ export default function StandingsPage(): JSX.Element {
           >
             <FhIcon name="shootout" />
           </Box>
+        }
+        action={
+          leagueKey ? (
+            <Button
+              data-testid="league-subscribe"
+              aria-pressed={followingLeague}
+              onClick={() => toggleLeague(leagueKey)}
+              size="small"
+              startIcon={<FhIcon name={followingLeague ? 'star' : 'starOutline'} inline />}
+              sx={{
+                color: followingLeague ? 'primary.main' : 'common.white',
+                fontWeight: 800,
+                borderRadius: '10px',
+                ...focusRing(theme),
+              }}
+            >
+              {followingLeague ? t('mobile.fan.subscribe.leagueOn') : t('mobile.fan.subscribe.league')}
+            </Button>
+          ) : undefined
         }
       />
 

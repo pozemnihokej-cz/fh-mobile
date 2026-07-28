@@ -30,10 +30,13 @@ vi.mock('@fh/auth', () => ({
   useAuth: () => ({ user: null, switchTenant: vi.fn() }),
 }));
 
-// Convex `useQuery` is not the subject of this test; stub it to return
-// loading for `matches.list` and a minimal doc for `matches.getBySupabaseId`.
+// Convex hooks are not the subject of this test; stub `useQuery` to return
+// loading and `useMutation`/`useAction` to inert fns so the match-detail
+// subtree (useTimeline → useMutation) renders without a real Convex client.
 vi.mock('convex/react', () => ({
   useQuery: vi.fn(() => undefined),
+  useMutation: vi.fn(() => vi.fn()),
+  useAction: vi.fn(() => vi.fn()),
 }));
 
 import TenantLayout from '../TenantLayout';

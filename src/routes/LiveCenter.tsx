@@ -3,10 +3,11 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useQuery } from 'convex/react';
 import { api } from '@convex/_generated/api';
 import { Box, Container, Button, alpha, useTheme } from '@mui/material';
-import { StickyGlassHeader, EmptyState, MatchCardSkeleton, FhIcon, focusRing, useStarredIds } from '@fh/ui';
+import { StickyGlassHeader, EmptyState, MatchCardSkeleton, FhIcon, focusRing } from '@fh/ui';
 import { MatchCard, type MatchCardData } from '../components/MatchCard';
 import { AsyncBoundary } from '../components/AsyncBoundary';
 import { useTenantContext } from './TenantContext';
+import { useFanPreferences } from '../lib/useFanPreferences';
 
 /**
  * PRD-055 Phase 2 (Spec-AC-04/05): the live-centre at `/<slug>/live`. Reuses the
@@ -18,7 +19,7 @@ export default function LiveCenter(): JSX.Element {
   const navigate = useNavigate();
   const theme = useTheme();
   const matches = useQuery(api.functions.matches.list, tenantId ? { tenantId } : 'skip');
-  const { isStarred, toggle } = useStarredIds('fh_starred_matches');
+  const { isMatchSaved, toggleMatch } = useFanPreferences();
 
   const live = useMemo<MatchCardData[]>(() => {
     if (!matches) return [];
@@ -80,10 +81,10 @@ export default function LiveCenter(): JSX.Element {
               <MatchCard
                 key={m._id}
                 match={m}
-                isStarred={isStarred(m.supabaseId)}
+                isStarred={isMatchSaved(m.supabaseId)}
                 onToggleStar={(e) => {
                   e.stopPropagation();
-                  toggle(m.supabaseId);
+                  toggleMatch(m.supabaseId);
                 }}
                 onClick={() => navigate(`../matches/${m.supabaseId}`, { relative: 'path' })}
               />

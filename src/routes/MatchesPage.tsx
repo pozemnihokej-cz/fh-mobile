@@ -9,10 +9,11 @@ import {
   alpha,
   useTheme,
 } from '@mui/material';
-import { StickyGlassHeader, EmptyState, MatchCardSkeleton, FhIcon, focusRing, useStarredIds } from '@fh/ui';
+import { StickyGlassHeader, EmptyState, MatchCardSkeleton, FhIcon, focusRing } from '@fh/ui';
 import { MatchCard, type MatchCardData } from '../components/MatchCard';
 import { AsyncBoundary } from '../components/AsyncBoundary';
 import { useTenantContext } from './TenantContext';
+import { useFanPreferences } from '../lib/useFanPreferences';
 
 /**
  * CHANGE-055 Spec-AC-01 / Spec-AC-12: matches list at `/<slug>/matches`.
@@ -27,7 +28,7 @@ export default function MatchesPage(): JSX.Element {
     tenantId ? { tenantId } : 'skip',
   );
 
-  const { isStarred, toggle: toggleStar } = useStarredIds('fh_starred_matches');
+  const { isMatchSaved, toggleMatch } = useFanPreferences();
 
   const sorted = useMemo<MatchCardData[]>(() => {
     if (!matches) return [];
@@ -89,10 +90,10 @@ export default function MatchesPage(): JSX.Element {
               <MatchCard
                 key={m._id}
                 match={m}
-                isStarred={isStarred(m.supabaseId)}
+                isStarred={isMatchSaved(m.supabaseId)}
                 onToggleStar={(e) => {
                   e.stopPropagation();
-                  toggleStar(m.supabaseId);
+                  toggleMatch(m.supabaseId);
                 }}
                 onClick={() => navigate(m.supabaseId)}
               />
