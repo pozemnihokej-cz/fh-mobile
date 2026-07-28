@@ -19,7 +19,6 @@ vi.mock('@fh/ui', () => ({
   MatchCardSkeleton: () => <div data-testid="skel" />,
   FhIcon: () => null,
   focusRing: () => ({}),
-  useStarredIds: () => ({ isStarred: () => false, toggle: () => undefined }),
 }));
 vi.mock('../../components/MatchCard', () => ({
   MatchCard: ({ match }: any) => <div data-testid="card">{match.supabaseId}</div>,

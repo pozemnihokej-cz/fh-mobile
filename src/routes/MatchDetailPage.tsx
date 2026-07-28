@@ -1,7 +1,8 @@
 import { Link, useParams } from 'react-router-dom';
 import { Box, Container, IconButton, Typography, alpha, useTheme } from '@mui/material';
-import { StickyGlassHeader, FhIcon, focusRing, useStarredIds } from '@fh/ui';
+import { StickyGlassHeader, FhIcon, focusRing } from '@fh/ui';
 import { MatchDetailView } from '../components/MatchDetailView';
+import { useFanPreferences } from '../lib/useFanPreferences';
 
 /**
  * CHANGE-055 Spec-AC-07: `/<slug>/matches/<matchId>` direct deep link.
@@ -13,7 +14,7 @@ import { MatchDetailView } from '../components/MatchDetailView';
 export default function MatchDetailPage(): JSX.Element {
   const { matchId } = useParams<{ matchId: string }>();
   const theme = useTheme();
-  const { isStarred, toggle } = useStarredIds('fh_starred_matches');
+  const { isMatchSaved, toggleMatch } = useFanPreferences();
 
   if (!matchId) {
     return (
@@ -52,10 +53,10 @@ export default function MatchDetailPage(): JSX.Element {
       <Container maxWidth="xs" sx={{ py: 3 }}>
         <MatchDetailView
           matchId={matchId}
-          starred={isStarred(matchId)}
+          starred={isMatchSaved(matchId)}
           onToggleStar={(e) => {
             e.stopPropagation();
-            toggle(matchId);
+            toggleMatch(matchId);
           }}
         />
       </Container>

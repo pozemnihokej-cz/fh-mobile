@@ -10,7 +10,7 @@ import { AuthProvider, useAuth } from '@fh/auth';
 import { resolveTenantTheme } from '@fh/config';
 import { initI18n } from '@fh/i18n';
 import { resolveBaseUrl, resolveSiblingUrl } from './lib/runtimeUrls';
-import { supabase } from './lib/supabase';
+import { authSupabase } from './lib/supabase';
 import App from './App';
 import TenantPickerPage from './routes/TenantPickerPage';
 import TenantLayout from './routes/TenantLayout';
@@ -103,7 +103,7 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
     <BrowserRouter>
       <AuthProvider
-        supabaseClient={supabase}
+        supabaseClient={authSupabase}
         apiUrl={resolveBaseUrl(import.meta.env.VITE_API_URL, 'http://localhost:4000')}
       >
         <MobileThemeBridge>
