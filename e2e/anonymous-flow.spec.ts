@@ -181,12 +181,14 @@ test.describe('CHANGE-055 TEST-015 — anonymous flow', () => {
     // Land on /e2e-test/matches (TenantLayout's index → matches redirect).
     await expect(page).toHaveURL(/\/e2e-test\/matches(?:\/?)$/, { timeout: 10_000 });
 
-    // Either the MatchesPage caption or its loading spinner must appear
-    // — WS sink is silent, so loading is the expected steady state.
+    // The MatchesPage loading skeleton (MatchCardSkeleton → MUI Skeleton) or
+    // resolved match content must appear — WS sink is silent, so the skeleton
+    // is the expected steady state. (Pre-CHANGE-055 this waited for the removed
+    // "PŘEHLED VŠECH UTKÁNÍ" caption / role=progressbar; both no longer exist.)
     await page.waitForFunction(
       () =>
-        document.body?.textContent?.includes('PŘEHLED VŠECH UTKÁNÍ')
-        || document.querySelector('[role="progressbar"]') !== null,
+        document.querySelector('.MuiSkeleton-root') !== null
+        || document.querySelector('[data-testid="match-card"]') !== null,
       { timeout: 10_000 },
     );
 
