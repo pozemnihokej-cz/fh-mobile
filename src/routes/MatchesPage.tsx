@@ -90,6 +90,7 @@ export default function MatchesPage(): JSX.Element {
               <MatchCard
                 key={m._id}
                 match={m}
+                compact
                 isStarred={isMatchSaved(m.supabaseId)}
                 onToggleStar={(e) => {
                   e.stopPropagation();

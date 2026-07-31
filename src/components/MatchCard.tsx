@@ -1,4 +1,5 @@
 import { MatchCard as UIMatchCard } from '@fh/ui';
+import { toImageUrl } from '../lib/runtimeUrls';
 
 /**
  * CHANGE-055 / mobile DS adoption: the styled presentation now lives in
@@ -37,16 +38,27 @@ export function MatchCard({
   isStarred,
   onToggleStar,
   onClick,
+  compact = false,
 }: {
   match: MatchCardData;
   isStarred: boolean;
   onToggleStar: (e: React.MouseEvent) => void;
   onClick: () => void;
+  /** CHANGE-194 Bug 2 — render the dense two-row list card. */
+  compact?: boolean;
 }): JSX.Element {
   return (
     <UIMatchCard
-      home={{ name: match.homeClubName ?? match.homeTeamName, logo: match.homeClubLogo ?? match.homeTeamLogo }}
-      away={{ name: match.awayClubName ?? match.awayTeamName, logo: match.awayClubLogo ?? match.awayTeamLogo }}
+      home={{
+        name: match.homeClubName ?? match.homeTeamName,
+        // CHANGE-194 Bug 1 — resolve stored /storage/v1/assets/… paths to a
+        // proxied public-object URL so real crests render (was raw → 404).
+        logo: toImageUrl(match.homeClubLogo ?? match.homeTeamLogo),
+      }}
+      away={{
+        name: match.awayClubName ?? match.awayTeamName,
+        logo: toImageUrl(match.awayClubLogo ?? match.awayTeamLogo),
+      }}
       league={match.leagueName}
       location={match.location}
       date={match.date}
@@ -56,6 +68,7 @@ export function MatchCard({
       starred={isStarred}
       onToggleStar={onToggleStar}
       onClick={onClick}
+      compact={compact}
     />
   );
 }

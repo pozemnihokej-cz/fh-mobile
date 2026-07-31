@@ -1,4 +1,5 @@
 import { unwrap, type SupabaseLike } from './supabaseRead';
+import { toImageUrl } from '../runtimeUrls';
 
 /**
  * PRD-055 Phase 2 — PlayerDetail adapter.
@@ -96,7 +97,7 @@ export function toPlayerIdentity(row: PersonPublicRow): PlayerIdentity {
     position: row.position || null,
     jersey: row.jersey_number != null ? String(row.jersey_number) : null,
     isCaptain: Boolean(row.is_captain),
-    photoUrl: row.photo_detail_url || row.photo_url || null,
+    photoUrl: toImageUrl(row.photo_detail_url || row.photo_url || null), // CHANGE-194 Bug 1
   };
 }
 
