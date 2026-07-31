@@ -1,4 +1,5 @@
 import { unwrap, type SupabaseLike } from './supabaseRead';
+import { toImageUrl } from '../runtimeUrls';
 
 /**
  * PRD-055 Phase 2 — ClubDetail adapter. Composes the already-anon `clubs`,
@@ -75,7 +76,7 @@ export function toClubDetail(
     .map((t) => ({
       id: t.id,
       name: t.short_name || t.name || '—',
-      logoUrl: t.logo_url,
+      logoUrl: toImageUrl(t.logo_url), // CHANGE-194 Bug 1
       category: t.category || t.gender || null,
     }))
     .sort((a, b) => a.name.localeCompare(b.name));
@@ -96,7 +97,7 @@ export function toClubDetail(
   return {
     id: club.id,
     name: club.marketing_name || club.short_name || club.official_name || '—',
-    logoUrl: club.logo_url,
+    logoUrl: toImageUrl(club.logo_url), // CHANGE-194 Bug 1
     web: club.web,
     teams: mappedTeams,
     fixtures,

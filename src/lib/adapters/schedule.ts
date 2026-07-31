@@ -1,4 +1,5 @@
 import { unwrap, type SupabaseLike } from './supabaseRead';
+import { toImageUrl } from '../runtimeUrls';
 
 /**
  * PRD-055 Phase 2 — Schedule adapter. Fixtures come from the already-anon
@@ -50,7 +51,8 @@ function teamSide(
   byId: Map<string, ScheduleTeamRow>,
 ): ScheduleSide {
   const t = id ? byId.get(id) : undefined;
-  return { name: t?.short_name || t?.name || '—', logoUrl: t?.logo_url ?? null };
+  // CHANGE-194 Bug 1 — resolve stored storage paths to a proxied public URL.
+  return { name: t?.short_name || t?.name || '—', logoUrl: toImageUrl(t?.logo_url ?? null) };
 }
 
 const dayFmt = new Intl.DateTimeFormat('cs-CZ', {

@@ -13,6 +13,31 @@ describe('toSearchResults (rows → grouped results)', () => {
     expect(results.teams[0]).toMatchObject({ kind: 'team', title: 'Alpha A' });
     expect(results.players[0]).toMatchObject({ kind: 'player', title: 'Jan Novák', subtitle: 'forward · #7' });
   });
+
+  // CHANGE-194 Bug 1 — stored logo/photo paths are relative `/storage/v1/assets/…`
+  // (and must NOT be handed raw to <img src>, where they 404). The adapter runs
+  // them through toImageUrl → proxied public-object form.
+  it('normalizes stored /storage/v1/assets storage paths to a proxied public URL', () => {
+    const results = toSearchResults(
+      [{ id: 'c1', official_name: 'Alpha', short_name: 'Alpha', marketing_name: null, logo_url: '/storage/v1/assets/t1/club-logo/x.png' }],
+      [{ id: 't1', name: 'Alpha A', short_name: null, logo_url: null, club_id: 'c1' }],
+      [{ id: 'p1', first_name: 'Jan', last_name: 'Novák', position: null, jersey_number: null, photo_url: '/storage/v1/assets/t1/person/p.png' }],
+    );
+    expect(results.clubs[0].imageUrl).toBe('/storage/v1/object/public/assets/t1/club-logo/x.png');
+    expect(results.players[0].imageUrl).toBe('/storage/v1/object/public/assets/t1/person/p.png');
+    // NULL stays null so the Avatar falls back to the gradient crest.
+    expect(results.teams[0].imageUrl).toBeNull();
+  });
+
+  it('leaves absolute (http) and already-public logo URLs untouched', () => {
+    const results = toSearchResults(
+      [{ id: 'c1', official_name: 'Alpha', short_name: 'Alpha', marketing_name: null, logo_url: 'https://ui-avatars.com/api/?name=A' }],
+      [{ id: 't1', name: 'Alpha A', short_name: null, logo_url: '/storage/v1/object/public/assets/t1/t.png', club_id: 'c1' }],
+      [],
+    );
+    expect(results.clubs[0].imageUrl).toBe('https://ui-avatars.com/api/?name=A');
+    expect(results.teams[0].imageUrl).toBe('/storage/v1/object/public/assets/t1/t.png');
+  });
 });
 
 describe('fetchSearch (multi-source read)', () => {

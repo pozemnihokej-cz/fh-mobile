@@ -1,4 +1,5 @@
 import { unwrap, type SupabaseLike } from './supabaseRead';
+import { toImageUrl } from '../runtimeUrls';
 
 /**
  * PRD-055 Phase 2 — Search adapter. Fans search across the already-anon
@@ -59,14 +60,14 @@ export function toSearchResults(
     id: c.id,
     title: c.marketing_name || c.short_name || c.official_name || '—',
     subtitle: null,
-    imageUrl: c.logo_url,
+    imageUrl: toImageUrl(c.logo_url), // CHANGE-194 Bug 1
   }));
   const teamResults: SearchResult[] = teams.map((t) => ({
     kind: 'team',
     id: t.id,
     title: t.short_name || t.name || '—',
     subtitle: null,
-    imageUrl: t.logo_url,
+    imageUrl: toImageUrl(t.logo_url), // CHANGE-194 Bug 1
   }));
   const playerResults: SearchResult[] = persons.map((p) => {
     const name = [p.first_name, p.last_name].filter(Boolean).join(' ').trim() || '—';
@@ -76,7 +77,7 @@ export function toSearchResults(
       id: p.id,
       title: name,
       subtitle: bits.length ? bits.join(' · ') : null,
-      imageUrl: p.photo_url,
+      imageUrl: toImageUrl(p.photo_url), // CHANGE-194 Bug 1
     };
   });
   return {

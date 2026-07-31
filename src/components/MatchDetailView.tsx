@@ -23,6 +23,7 @@ import {
   useLiveMatchClock,
   useTimelineEventBursts,
 } from '@fh/ui';
+import { toImageUrl } from '../lib/runtimeUrls';
 
 export function MatchDetailView({
   matchId,
@@ -127,8 +128,9 @@ export function MatchDetailView({
         <MatchScoreboard
           live={isLive}
           league={match.leagueName}
-          home={{ name: match.homeClubName ?? match.homeTeamName, logo: match.homeClubLogo ?? match.homeTeamLogo }}
-          away={{ name: match.awayClubName ?? match.awayTeamName, logo: match.awayClubLogo ?? match.awayTeamLogo }}
+          // CHANGE-194 Bug 1 — resolve stored storage paths (same fix as the list card).
+          home={{ name: match.homeClubName ?? match.homeTeamName, logo: toImageUrl(match.homeClubLogo ?? match.homeTeamLogo) }}
+          away={{ name: match.awayClubName ?? match.awayTeamName, logo: toImageUrl(match.awayClubLogo ?? match.awayTeamLogo) }}
           score={{ home: derivedState.score.home, away: derivedState.score.away }}
           dateLabel={matchDateStr}
           location={match.location}

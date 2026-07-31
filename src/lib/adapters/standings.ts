@@ -1,4 +1,5 @@
 import { unwrap, type SupabaseLike } from './supabaseRead';
+import { toImageUrl } from '../runtimeUrls';
 
 /**
  * PRD-055 Phase 2 — Standings adapter. The fan Standings table is COMPUTED
@@ -50,7 +51,7 @@ export function computeStandings(
     byId.set(t.id, {
       teamId: t.id,
       name: t.short_name || t.name || '—',
-      logoUrl: t.logo_url,
+      logoUrl: toImageUrl(t.logo_url), // CHANGE-194 Bug 1
       played: 0,
       wins: 0,
       draws: 0,

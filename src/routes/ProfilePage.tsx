@@ -1,9 +1,11 @@
 import { Box, Container, Typography, Stack, Button, Chip, alpha, useTheme } from '@mui/material';
+import { useNavigate } from 'react-router-dom';
 import { StickyGlassHeader, EmptyState, FhIcon, focusRing, typeScale } from '@fh/ui';
 import { useAuth } from '@fh/auth';
 import { useTranslation } from '@fh/i18n';
 import { AuthForm } from '../components/AuthForm';
 import { useFanPreferences } from '../lib/useFanPreferences';
+import { useTenantContext } from './TenantContext';
 
 /**
  * PRD-034 Spec-AC-13 / -14 / -15 — auth-aware Profile at `/<slug>/profile`.
@@ -15,8 +17,10 @@ import { useFanPreferences } from '../lib/useFanPreferences';
  */
 export default function ProfilePage(): JSX.Element {
   const theme = useTheme();
+  const navigate = useNavigate();
   const { t } = useTranslation();
   const { user, isAuthenticated, signOut } = useAuth();
+  const { tenantName } = useTenantContext();
   const prefs = useFanPreferences();
 
   const white = theme.palette.common.white;
@@ -83,6 +87,29 @@ export default function ProfilePage(): JSX.Element {
       />
 
       <Container maxWidth="xs" data-testid="profile-screen">
+        {/* CHANGE-194 Bug 3 — switch active organization (back to the tenant
+            picker). Shown in both auth states: switching org is independent of
+            being signed in, and there was previously no affordance linking to
+            the `/` picker from inside the app. */}
+        <Box sx={{ ...cardSx, mb: 2.5 }}>
+          <Typography sx={sectionLabelSx}>{t('mobile.fan.profile.organization')}</Typography>
+          {tenantName && (
+            <Typography sx={{ ...typeScale.bodyStrong, color: 'common.white' }}>{tenantName}</Typography>
+          )}
+          <Button
+            data-testid="profile-switch-org"
+            onClick={() => navigate('/')}
+            variant="outlined"
+            color="inherit"
+            startIcon={<FhIcon name="dashboard" inline />}
+            endIcon={<FhIcon name="chevronRight" inline />}
+            sx={{ mt: 1.5, borderRadius: '12px', fontWeight: 700, justifyContent: 'space-between', ...focusRing(theme) }}
+            fullWidth
+          >
+            {t('mobile.fan.profile.switchOrg')}
+          </Button>
+        </Box>
+
         {!isAuthenticated ? (
           <Stack spacing={2}>
             <Box>
