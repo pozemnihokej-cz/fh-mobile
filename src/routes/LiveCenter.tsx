@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useQuery } from 'convex/react';
+import { isMatchGenuinelyLive } from '@fh/schema';
 import { api } from '@convex/_generated/api';
 import { Box, Container, Button, alpha, useTheme } from '@mui/material';
 import { StickyGlassHeader, EmptyState, MatchCardSkeleton, FhIcon, focusRing } from '@fh/ui';
@@ -23,8 +24,14 @@ export default function LiveCenter(): JSX.Element {
 
   const live = useMemo<MatchCardData[]>(() => {
     if (!matches) return [];
+    // Derive genuine liveness via the shared @fh/schema derivation (OM parity):
+    // the mirror writes `in_progress` (never `live`), keyed by the actual kickoff
+    // within MATCH_LIVE_WINDOW_MS (fan-app-live-status-derivation Spec-AC-01/02).
+    const now = Date.now();
     return (matches as MatchCardData[])
-      .filter((m) => m.status === 'live')
+      .filter((m) =>
+        isMatchGenuinelyLive({ status: m.status, scheduledDate: m.date, startedAt: m.startedAt, now }),
+      )
       .sort((a, b) => b.date - a.date);
   }, [matches]);
 

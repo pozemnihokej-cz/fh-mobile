@@ -23,6 +23,7 @@ import {
   useLiveMatchClock,
   useTimelineEventBursts,
 } from '@fh/ui';
+import { isMatchGenuinelyLive } from '@fh/schema';
 import { toImageUrl } from '../lib/runtimeUrls';
 
 export function MatchDetailView({
@@ -86,7 +87,16 @@ export function MatchDetailView({
     }
   }, [latestBurst?.firedAt]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const isLive = match?.status === 'live';
+  // Genuine liveness via the shared @fh/schema derivation over the actual
+  // kickoff surfaced by getBySupabaseId (`startedAt`) — the mirror writes
+  // `in_progress`, never the literal `live` (fan-app-live-status-derivation
+  // Spec-AC-04). Safe pre-guard: undefined match → status undefined → not live.
+  const isLive = isMatchGenuinelyLive({
+    status: (match as { status?: string } | null | undefined)?.status,
+    scheduledDate: (match as { date?: number } | null | undefined)?.date,
+    startedAt: (match as { startedAt?: number | null } | null | undefined)?.startedAt ?? null,
+    now: Date.now(),
+  });
 
   const matchDateStr = useMemo(() => {
     if (!match?.date) return '';

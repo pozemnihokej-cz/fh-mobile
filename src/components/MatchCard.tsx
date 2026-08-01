@@ -1,4 +1,5 @@
 import { MatchCard as UIMatchCard } from '@fh/ui';
+import { isMatchGenuinelyLive } from '@fh/schema';
 import { toImageUrl } from '../lib/runtimeUrls';
 
 /**
@@ -29,6 +30,12 @@ export interface MatchCardData {
   location?: string | null;
   date: number;
   status: 'scheduled' | 'live' | 'completed' | string;
+  /**
+   * Actual kickoff (ms epoch) surfaced by Convex `matches.list` /
+   * `getBySupabaseId` from `liveMatchState.started`. Drives the shared
+   * `@fh/schema` liveness derivation (fan-app-live-status-derivation).
+   */
+  startedAt?: number | null;
   score?: { home?: number; away?: number };
   liveState?: { phase?: string };
 }
@@ -47,6 +54,15 @@ export function MatchCard({
   /** CHANGE-194 Bug 2 — render the dense two-row list card. */
   compact?: boolean;
 }): JSX.Element {
+  // Derive genuine liveness the SAME way OM does (shared @fh/schema derivation):
+  // the Supabase→Convex mirror only writes `in_progress` — never `live` — so a
+  // literal status check would never light the badge (fan-app-live-status-derivation).
+  const live = isMatchGenuinelyLive({
+    status: match.status,
+    scheduledDate: match.date,
+    startedAt: match.startedAt,
+    now: Date.now(),
+  });
   return (
     <UIMatchCard
       home={{
@@ -63,6 +79,7 @@ export function MatchCard({
       location={match.location}
       date={match.date}
       status={match.status}
+      live={live}
       score={match.score}
       phase={match.liveState?.phase}
       starred={isStarred}
