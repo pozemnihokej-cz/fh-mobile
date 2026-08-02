@@ -80,7 +80,9 @@ beforeEach(() => {
   vi.clearAllMocks();
   localStorage.clear();
   getSpy.mockResolvedValue(null);
-  state.matches = [{ _id: '1', supabaseId: 'live-a', status: 'live', date: 2 }];
+  // A genuinely-live match is in_progress with a recent kickoff (the mirror
+  // never writes the literal 'live'); LiveCenter now derives liveness that way.
+  state.matches = [{ _id: '1', supabaseId: 'live-a', status: 'in_progress', date: 2, startedAt: Date.now() - 60_000 }];
   authState = { isAuthenticated: true, token: 'tok-abc', user: { id: 'fan-1' } };
 });
 afterEach(cleanup);
