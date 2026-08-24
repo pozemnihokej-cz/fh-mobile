@@ -13,12 +13,12 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
 
-type Row = { clubs: string[]; leagues: string[]; matches: string[]; updatedAt: number } | null;
-const getSpy = vi.fn(async (_a: { token: string }): Promise<Row> => null);
+type Row = { clubs: string[]; leagues: string[]; matches: string[] } | null;
+const getSpy = vi.fn(async (): Promise<Row> => null);
 const upsertSpy = vi.fn(
-  async (_a: { token: string; clubs: string[]; leagues: string[]; matches: string[] }): Promise<string> => 'row-id',
+  async (_a: { clubs: string[]; leagues: string[]; matches: string[] }): Promise<void> => undefined,
 );
-const clearSpy = vi.fn(async (_a: { token: string }): Promise<void> => undefined);
+const clearSpy = vi.fn(async (): Promise<void> => undefined);
 vi.mock('../lib/fanPrefsClient', () => ({
   useFanPrefsActions: () => ({ get: getSpy, upsert: upsertSpy, clear: clearSpy }),
 }));
@@ -57,7 +57,7 @@ describe('Fan-prefs sync is one-shot per identity (token refresh)', () => {
   it('a token refresh with the same identity does NOT re-fire sync or resurrect a removed item', async () => {
     // Signed in; remote already has m-remote → sync unions it in.
     authState = { isAuthenticated: true, token: 'tok-1', user: { id: 'fan-1' } };
-    getSpy.mockResolvedValue({ clubs: [], leagues: [], matches: ['m-remote'], updatedAt: 1 });
+    getSpy.mockResolvedValue({ clubs: [], leagues: [], matches: ['m-remote'] });
 
     const { rerender } = render(tree());
 
@@ -84,7 +84,7 @@ describe('Fan-prefs sync is one-shot per identity (token refresh)', () => {
 
   it('signing in as a DIFFERENT identity re-arms the sync', async () => {
     authState = { isAuthenticated: true, token: 'tok-1', user: { id: 'fan-1' } };
-    getSpy.mockResolvedValue({ clubs: [], leagues: [], matches: [], updatedAt: 1 });
+    getSpy.mockResolvedValue({ clubs: [], leagues: [], matches: [] });
     const { rerender } = render(tree());
     await waitFor(() => expect(getSpy).toHaveBeenCalledTimes(1));
 
@@ -99,6 +99,8 @@ describe('Fan-prefs sync is one-shot per identity (token refresh)', () => {
     });
 
     await waitFor(() => expect(getSpy).toHaveBeenCalledTimes(2));
-    expect(getSpy.mock.calls[getSpy.mock.calls.length - 1][0]).toEqual({ token: 'tok-9' });
+    // The re-armed sync re-reads under the NEW identity; RLS scopes it, so the
+    // call itself still carries no argument.
+    expect(getSpy.mock.calls[getSpy.mock.calls.length - 1]).toEqual([]);
   });
 });
