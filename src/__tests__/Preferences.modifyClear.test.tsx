@@ -3,19 +3,23 @@
  * subscriptions across BOTH paths:
  *   - ANON: subscriptions live in localStorage (fh_starred_matches / fh_my_clubs
  *     / fh_my_leagues); no Convex call is made.
- *   - SIGNED-IN: on the token-present transition the client reads Convex, unions
- *     with localStorage, and upserts the merged set; subsequent modify/clear go
- *     to Convex (upsert / clear) keyed off the fan's token.
+ *   - SIGNED-IN: on the token-present transition the client reads the stored
+ *     rows, unions with localStorage, and upserts the merged set; subsequent
+ *     modify/clear push the full set (upsert / clear).
+ *
+ * TECHDEBT-041: the backing store moved Convex -> Postgres. The calls carry NO
+ * token and NO user id any more — own-data isolation is own-row RLS on
+ * auth.uid() (migration 00214), so the identity never crosses this seam.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
 
-type Row = { clubs: string[]; leagues: string[]; matches: string[]; updatedAt: number } | null;
-const getSpy = vi.fn(async (_a: { token: string }): Promise<Row> => null);
+type Row = { clubs: string[]; leagues: string[]; matches: string[] } | null;
+const getSpy = vi.fn(async (): Promise<Row> => null);
 const upsertSpy = vi.fn(
-  async (_a: { token: string; clubs: string[]; leagues: string[]; matches: string[] }): Promise<string> => 'row-id',
+  async (_a: { clubs: string[]; leagues: string[]; matches: string[] }): Promise<void> => undefined,
 );
-const clearSpy = vi.fn(async (_a: { token: string }): Promise<void> => undefined);
+const clearSpy = vi.fn(async (): Promise<void> => undefined);
 
 vi.mock('../lib/fanPrefsClient', () => ({
   useFanPrefsActions: () => ({ get: getSpy, upsert: upsertSpy, clear: clearSpy }),
@@ -82,20 +86,23 @@ describe('Preferences modify/clear — ANON localStorage path (TEST-020)', () =>
   });
 });
 
-describe('Preferences modify/clear — SIGNED-IN Convex path (TEST-020)', () => {
+describe('Preferences modify/clear — SIGNED-IN server path (TEST-020)', () => {
   beforeEach(() => {
     authState = { isAuthenticated: true, token: 'tok-abc', user: { id: 'fan-1' } };
-    // localStorage has an anon club; Convex has a remote club → union on sign-in.
+    // localStorage has an anon club; the store has a remote club → union on sign-in.
     localStorage.setItem('fh_my_clubs', JSON.stringify(['c-local']));
-    getSpy.mockResolvedValue({ clubs: ['c-remote'], leagues: [], matches: [], updatedAt: 1 });
+    getSpy.mockResolvedValue({ clubs: ['c-remote'], leagues: [], matches: [] });
   });
 
-  it('sign-in transition reads Convex, unions with localStorage, and upserts merged', async () => {
+  it('sign-in transition reads the store, unions with localStorage, and upserts merged', async () => {
     renderHarness();
-    await waitFor(() => expect(getSpy).toHaveBeenCalledWith({ token: 'tok-abc' }));
+    // No argument at all: the read is scoped by RLS, not by a client-supplied id.
+    await waitFor(() => expect(getSpy).toHaveBeenCalled());
+    expect(getSpy.mock.calls[0]).toEqual([]);
     await waitFor(() => expect(upsertSpy).toHaveBeenCalled());
     const call = upsertSpy.mock.calls[0][0];
-    expect(call.token).toBe('tok-abc');
+    expect(call).not.toHaveProperty('token');
+    expect(call).not.toHaveProperty('userId');
     expect(call.clubs).toEqual(expect.arrayContaining(['c-local', 'c-remote']));
     // Merged state is reflected in the UI.
     await waitFor(() =>
@@ -103,7 +110,7 @@ describe('Preferences modify/clear — SIGNED-IN Convex path (TEST-020)', () => 
     );
   });
 
-  it('modify (signed-in) upserts the new full set with the token', async () => {
+  it('modify (signed-in) upserts the new full set, carrying no identity', async () => {
     renderHarness();
     await waitFor(() => expect(upsertSpy).toHaveBeenCalledTimes(1)); // the sync upsert
     await act(async () => {
@@ -111,17 +118,19 @@ describe('Preferences modify/clear — SIGNED-IN Convex path (TEST-020)', () => 
     });
     await waitFor(() => expect(upsertSpy).toHaveBeenCalledTimes(2));
     const last = upsertSpy.mock.calls[upsertSpy.mock.calls.length - 1][0];
-    expect(last.token).toBe('tok-abc');
+    expect(last).not.toHaveProperty('token');
+    expect(last).not.toHaveProperty('userId');
     expect(last.matches).toEqual(expect.arrayContaining(['m1']));
   });
 
-  it('clear (signed-in) calls Convex clear with the token', async () => {
+  it('clear (signed-in) calls clear with no arguments', async () => {
     renderHarness();
     await waitFor(() => expect(upsertSpy).toHaveBeenCalled());
     await act(async () => {
       fireEvent.click(screen.getByTestId('clr'));
     });
-    await waitFor(() => expect(clearSpy).toHaveBeenCalledWith({ token: 'tok-abc' }));
+    await waitFor(() => expect(clearSpy).toHaveBeenCalled());
+    expect(clearSpy.mock.calls[0]).toEqual([]);
     expect(screen.getByTestId('clubs')).toHaveTextContent('');
   });
 });

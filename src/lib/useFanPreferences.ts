@@ -17,24 +17,31 @@ import { useFanPrefsActions } from './fanPrefsClient';
  * Single source of truth for the three subscribed lists (clubs / leagues /
  * matches). Hides the anon-vs-signed-in branch from screens:
  *
- *   - ANONYMOUS: the lists live in localStorage (keys below). Zero Supabase /
- *     Convex load — the v1 anonymous experience is preserved.
+ *   - ANONYMOUS: the lists live in localStorage (keys below). Zero backend
+ *     load — the v1 anonymous experience is preserved.
  *   - ON SIGN-IN (token becomes non-null): a one-shot, ref-guarded sync reads
- *     Convex, UNIONS the remote lists with the current localStorage lists, and
- *     upserts the merged set (full-replace keyed by the verified `sub`). State
- *     is then read-through Convex while localStorage stays mirrored so a later
+ *     the fan's stored rows, UNIONS them with the current localStorage lists,
+ *     and writes the merged set back (atomic full-replace). State is then
+ *     read-through the store while localStorage stays mirrored so a later
  *     sign-out degrades gracefully.
  *   - SIGNED-IN MUTATIONS: toggle/clear update state optimistically, mirror to
- *     localStorage, and push the new full set to Convex (upsert / clear).
+ *     localStorage, and push the new full set (upsert / clear).
  *
- * Own-data isolation is enforced by the backend (token → sub only); the client
- * never supplies an id and never routes the fan JWT to PostgREST (public browse
- * stays on the anon client).
+ * TECHDEBT-041 moved the backing store from Convex to the RLS-gated Postgres
+ * table `fan_preferences` (migration 00214); persistent data in Convex is
+ * forbidden by docs/TECHNOLOGY.md L72. That swap is confined to
+ * ./fanPrefsClient.ts — the merge semantics and every screen-facing API below
+ * are unchanged.
+ *
+ * Own-data isolation is enforced by the DATABASE (own-row RLS on auth.uid()):
+ * the client supplies no user id on any call. The fan JWT now does reach
+ * PostgREST for THIS table, which is safe because 00214 gates on auth.uid()
+ * rather than tenant access; public browse reads still use the anon client.
  *
  * Delivered as a Provider + `useFanPreferences()` context hook so the store is
  * a single instance for the whole app session (one sync, live cross-screen
  * updates). Consumers rendered WITHOUT the provider (isolated unit tests) get
- * an inert default and never touch Convex.
+ * an inert default and never touch the backend.
  */
 
 // Storage keys. `fh_starred_matches` is the pre-existing v1 key (kept for
@@ -54,7 +61,7 @@ export interface FanPreferences {
   toggleLeague: (id: string) => void;
   toggleMatch: (id: string) => void;
   clearAll: () => void;
-  /** True once a fan session is active (drives the Convex sync path). */
+  /** True once a fan session is active (drives the server-backed sync path). */
   isAuthenticated: boolean;
 }
 
@@ -128,10 +135,10 @@ export function FanPreferencesProvider({ children }: { children: ReactNode }): J
   // refresh, which can RESURRECT a just-removed item (a refresh get() racing an
   // in-flight removal). Keying on identity fires the merge exactly once per
   // signed-in fan; token refresh with the same identity is a no-op here.
-  // Both token and identity are required: token to call Convex, identity to key
-  // the guard. Sign-out (identity → null) re-arms it, so signing in as a
-  // different user re-syncs. Read-through Convex still works: the one-shot get()
-  // seeds state and subsequent mutations push the full set.
+  // Both token and identity are required: the token proves there is a live
+  // session (RLS needs it), identity keys the guard. Sign-out (identity → null)
+  // re-arms it, so signing in as a different user re-syncs. Read-through still
+  // works: the one-shot get() seeds state and mutations push the full set.
   const syncedIdentity = useRef<string | null>(null);
   useEffect(() => {
     const identity = user?.id ?? null;
@@ -146,7 +153,7 @@ export function FanPreferencesProvider({ children }: { children: ReactNode }): J
     void (async () => {
       let remote: { clubs: string[]; leagues: string[]; matches: string[] } | null = null;
       try {
-        remote = await get({ token });
+        remote = await get();
       } catch {
         remote = null;
       }
@@ -159,7 +166,6 @@ export function FanPreferencesProvider({ children }: { children: ReactNode }): J
       setMatches(mergedMatches);
       try {
         await upsert({
-          token,
           clubs: mergedClubs,
           leagues: mergedLeagues,
           matches: mergedMatches,
@@ -176,11 +182,11 @@ export function FanPreferencesProvider({ children }: { children: ReactNode }): J
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [token, user?.id]);
 
-  // Push the current full set to Convex when signed in (full-replace upsert).
+  // Push the current full set when signed in (atomic full-replace via RPC).
   const pushIfSignedIn = useCallback(
     (next: { clubs: string[]; leagues: string[]; matches: string[] }) => {
       if (!token) return;
-      void upsert({ token, ...next }).catch(() => undefined);
+      void upsert({ ...next }).catch(() => undefined);
     },
     [token, upsert],
   );
@@ -214,7 +220,7 @@ export function FanPreferencesProvider({ children }: { children: ReactNode }): J
     setClubs([]);
     setLeagues([]);
     setMatches([]);
-    if (token) void clear({ token }).catch(() => undefined);
+    if (token) void clear().catch(() => undefined);
   }, [token, clear]);
 
   const value: FanPreferences = {
