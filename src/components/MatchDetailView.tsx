@@ -186,6 +186,7 @@ export function MatchDetailView({
           awayTeamName={match.awayTeamName}
           awayTeamLogo={match.awayTeamLogo}
           partType={matchConfig?.partType}
+          gameTime={matchConfig?.gameTime}
           variant="fancy"
         />
       </Box>
