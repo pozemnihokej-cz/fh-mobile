@@ -42,6 +42,8 @@ vi.mock('@fh/ui', () => ({
   useTimeline: () => ({ events: [], derivedState: { score: { home: 0, away: 0 }, activeSuspensions: [] } }),
   useLiveMatchClock: () => ({ time: 0, totalElapsed: 0, phase: '1Q', running: true, colonVisible: true, loaded: true }),
   useTimelineEventBursts: () => ({ current: null }),
+  focusRing: () => ({}),
+  typeScale: { body: {}, bodyStrong: {} },
 }));
 
 import { MatchDetailView } from '../MatchDetailView';

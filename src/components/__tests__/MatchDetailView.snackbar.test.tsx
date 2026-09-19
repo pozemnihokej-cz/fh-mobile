@@ -85,6 +85,8 @@ vi.mock('@fh/ui', () => ({
     loaded: true,
   }),
   useTimelineEventBursts: () => burstState,
+  focusRing: () => ({}),
+  typeScale: { body: {}, bodyStrong: {} },
 }));
 
 import { MatchDetailView } from '../MatchDetailView';
