@@ -37,6 +37,10 @@ export interface MatchCardData {
    */
   startedAt?: number | null;
   score?: { home?: number; away?: number };
+  homeScore?: number;
+  awayScore?: number;
+  liveRunning?: boolean;
+  venue?: string | null;
   liveState?: { phase?: string };
 }
 
@@ -57,12 +61,29 @@ export function MatchCard({
   // Derive genuine liveness the SAME way OM does (shared @fh/schema derivation):
   // the Supabase→Convex mirror only writes `in_progress` — never `live` — so a
   // literal status check would never light the badge (fan-app-live-status-derivation).
-  const live = isMatchGenuinelyLive({
+  const liveness = isMatchGenuinelyLive({
     status: match.status,
     scheduledDate: match.date,
     startedAt: match.startedAt,
     now: Date.now(),
   });
+
+  const now = Date.now();
+  // Check if awaiting closure (started long ago, not finalized)
+  const isAwaitingClosure =
+    match.status === 'in_progress' && !liveness;
+
+  // Only show/pass score if the match is completed, genuinely live, or awaiting closure.
+  // Scheduled fixtures must NOT show score (rendering 0:0 reads as a goalless draw).
+  const isPlayedOrLive = match.status === 'completed' || liveness || isAwaitingClosure;
+
+  const resolvedScore = isPlayedOrLive
+    ? (match.score ??
+       (match.homeScore != null || match.awayScore != null
+         ? { home: match.homeScore ?? 0, away: match.awayScore ?? 0 }
+         : undefined))
+    : undefined;
+
   return (
     <UIMatchCard
       home={{
@@ -76,11 +97,13 @@ export function MatchCard({
         logo: toImageUrl(match.awayClubLogo ?? match.awayTeamLogo),
       }}
       league={match.leagueName}
-      location={match.location}
+      location={match.venue ?? match.location}
       date={match.date}
       status={match.status}
-      live={live}
-      score={match.score}
+      live={liveness}
+      liveRunning={match.liveRunning}
+      awaitingClosure={isAwaitingClosure}
+      score={resolvedScore}
       phase={match.liveState?.phase}
       starred={isStarred}
       onToggleStar={onToggleStar}

@@ -50,7 +50,7 @@ export default function MatchDetailPage(): JSX.Element {
           </IconButton>
         }
       />
-      <Container maxWidth="xs" sx={{ py: 3 }}>
+      <Container maxWidth="sm" sx={{ py: 3 }}>
         <MatchDetailView
           matchId={matchId}
           starred={isMatchSaved(matchId)}
