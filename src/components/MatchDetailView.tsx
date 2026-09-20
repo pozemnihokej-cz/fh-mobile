@@ -31,7 +31,7 @@ import { isMatchGenuinelyLive } from '@fh/schema';
 import { toImageUrl } from '../lib/runtimeUrls';
 import { supabase } from '../lib/supabase';
 import { useAsyncData } from '../lib/useAsyncData';
-import { fetchLineup, type LineupPlayer } from '../lib/adapters/lineup';
+import { fetchLineup, groupLineup, type LineupPlayer } from '../lib/adapters/lineup';
 
 export function MatchDetailView({
   matchId,
@@ -62,13 +62,25 @@ export function MatchDetailView({
   const { time: elapsed, phase, totalElapsed, running: isRunning, colonVisible, loaded: clockLoaded } = useLiveMatchClock(matchId, matchConfig);
   const { events, derivedState, loaded: timelineLoaded } = useTimeline(matchId, totalElapsed);
 
-  // Lineup fetch for the integrated in-tunnel roster tab
+  // Convex live query for match roster (OM parity — holds complete rosters)
+  const rosterQuery = (api as any)?.functions?.roster?.list;
+  const convexRoster = useQuery(
+    rosterQuery ?? ('skip' as any),
+    matchId && rosterQuery ? { matchId } : 'skip',
+  );
+
+  // Lineup fetch for the integrated in-tunnel roster tab — fallback to Supabase / Convex HTTP
   const { data: lineupData } = useAsyncData(
     () => fetchLineup(supabase, matchId),
     [matchId],
     Boolean(matchId),
   );
-  const lineup = lineupData ?? { home: [], guest: [] };
+  const lineup = useMemo(() => {
+    if (Array.isArray(convexRoster) && convexRoster.length > 0) {
+      return groupLineup(convexRoster as any);
+    }
+    return lineupData ?? { home: [], guest: [] };
+  }, [convexRoster, lineupData]);
   const currentPlayers = rosterSide === 'home' ? lineup.home : lineup.guest;
 
   // Fan notification surface: a Snackbar fires every time a new
@@ -100,6 +112,14 @@ export function MatchDetailView({
     startedAt: (match as { startedAt?: number | null } | null | undefined)?.startedAt ?? null,
     now: Date.now(),
   });
+
+  // When match has no timeline events and is not live, roster is the primary interesting tab
+  const hasTimelineEvents = events && events.length > 0;
+  useEffect(() => {
+    if (!isLive && !hasTimelineEvents && timelineLoaded) {
+      setTunnelTab('roster');
+    }
+  }, [isLive, hasTimelineEvents, timelineLoaded]);
 
   const matchDateStr = useMemo(() => {
     if (!match?.date) return '';
@@ -218,7 +238,11 @@ export function MatchDetailView({
           league={match.leagueName}
           home={{ name: match.homeClubName ?? match.homeTeamName, logo: toImageUrl(match.homeClubLogo ?? match.homeTeamLogo) }}
           away={{ name: match.awayClubName ?? match.awayTeamName, logo: toImageUrl(match.awayClubLogo ?? match.awayTeamLogo) }}
-          score={{ home: derivedState.score.home, away: derivedState.score.away }}
+          score={
+            isLive || match.status === 'completed' || (match.status === 'in_progress' && !isLive)
+              ? { home: derivedState.score.home, away: derivedState.score.away }
+              : null
+          }
           dateLabel={matchDateStr}
           location={match.location}
           starred={starred}

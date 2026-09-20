@@ -130,7 +130,7 @@ export default function LineupPage(): JSX.Element {
         }
       />
 
-      <Container maxWidth="xs" data-testid="lineup-screen">
+      <Container maxWidth="sm" data-testid="lineup-screen">
         <AsyncBoundary
           loading={loading}
           error={error}
