@@ -1,5 +1,4 @@
 import { useMemo, useState, useEffect, useRef } from 'react';
-import { Link } from 'react-router-dom';
 import { useQuery } from 'convex/react';
 import { api } from '@convex/_generated/api';
 import {
@@ -684,25 +683,6 @@ export function MatchDetailView({
               </Typography>
             )}
           </Box>
-
-          <Button
-            component={Link}
-            to="lineup"
-            relative="path"
-            fullWidth
-            variant="outlined"
-            color="inherit"
-            sx={{
-              borderRadius: '12px',
-              py: 1,
-              fontWeight: 800,
-              fontSize: '0.82rem',
-              borderColor: alpha(theme.palette.common.white, 0.12),
-              ...focusRing(theme),
-            }}
-          >
-            Samostatná stránka sestavy
-          </Button>
         </Box>
       )}
 
