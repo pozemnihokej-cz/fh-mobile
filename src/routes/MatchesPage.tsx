@@ -357,7 +357,7 @@ export default function MatchesPage(): JSX.Element {
         }
       />
 
-      <Container maxWidth="md" sx={{ px: { xs: 2, sm: 3 } }}>
+      <Container maxWidth="lg" sx={{ px: { xs: 2, sm: 3 } }}>
         {/* Venue Filter Bar with Autocomplete & Nearby quick chip */}
         <Box
           sx={{
@@ -490,7 +490,7 @@ export default function MatchesPage(): JSX.Element {
           loading={matches === undefined}
           isEmpty={timeline.totalCount === 0}
           skeleton={
-            <Grid container spacing={1.5}>
+            <Grid container spacing={1.5} alignItems="stretch">
               {Array.from({ length: 6 }).map((_, i) => (
                 <Grid
                   item
@@ -498,6 +498,8 @@ export default function MatchesPage(): JSX.Element {
                   md={6}
                   key={i}
                   sx={{
+                    display: 'flex',
+                    flexDirection: 'column',
                     '@media (orientation: portrait)': {
                       maxWidth: '100%',
                       flexBasis: '100%',
@@ -584,7 +586,7 @@ export default function MatchesPage(): JSX.Element {
                 </Box>
 
                 {/* Match cards in responsive grid: 1 col on portrait (xs/sm/md-portrait), 2 cols on landscape (md/lg) */}
-                <Grid container spacing={1.5}>
+                <Grid container spacing={1.5} alignItems="stretch">
                   {day.items.map((m) => (
                     <Grid
                       item
@@ -593,6 +595,8 @@ export default function MatchesPage(): JSX.Element {
                       key={m._id}
                       id={`match-item-${m.supabaseId}`}
                       sx={{
+                        display: 'flex',
+                        flexDirection: 'column',
                         '@media (orientation: portrait)': {
                           maxWidth: '100%',
                           flexBasis: '100%',

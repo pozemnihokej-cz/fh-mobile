@@ -98,10 +98,10 @@ describe('MatchesPage timeline and features', () => {
       </BrowserRouter>,
     );
 
-    // Today's match is visible immediately with VS instead of 0:0
+    // Today's match is visible immediately without premature score (0:0) or duplicate VS
     expect(screen.getByText('Dnes HC')).toBeDefined();
     expect(screen.getByText('Současnost SK')).toBeDefined();
-    expect(screen.getByText('VS')).toBeDefined();
+    expect(screen.queryByText('VS')).toBeNull();
     expect(screen.queryByText('0:0')).toBeNull();
 
     // Past match is hidden by default
