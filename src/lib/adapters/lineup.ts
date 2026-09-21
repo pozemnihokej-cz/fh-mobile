@@ -18,6 +18,7 @@ export interface MatchPlayerRow {
   position?: string | null;
   role?: string | null;
   side?: string | null;
+  image?: string | null;
 }
 
 export interface LineupPlayer {
@@ -27,6 +28,8 @@ export interface LineupPlayer {
   position: string | null;
   isCaptain: boolean;
   isCoach: boolean;
+  image?: string | null;
+  side?: 'home' | 'guest';
 }
 
 export interface Lineup {
@@ -35,6 +38,8 @@ export interface Lineup {
 }
 
 function toPlayer(row: MatchPlayerRow): LineupPlayer {
+  const rawSide = String(row.side ?? '').toLowerCase().trim();
+  const isGuest = rawSide === 'guest' || rawSide === 'away' || rawSide === 'host' || rawSide === 'hoste';
   return {
     id: row._id || row.id || '',
     name: row.name || '—',
@@ -42,6 +47,8 @@ function toPlayer(row: MatchPlayerRow): LineupPlayer {
     position: row.position || null,
     isCaptain: row.role === 'captain' || row.role === 'Captain' || row.role === 'C',
     isCoach: row.role === 'coach',
+    image: row.image || null,
+    side: isGuest ? 'guest' : 'home',
   };
 }
 
@@ -87,7 +94,7 @@ export async function fetchLineup(
     const rows = unwrap<MatchPlayerRow[]>(
       await supabase
         .from('match_players')
-        .select('id,name,jersey_number,position,role,side')
+        .select('id,name,jersey_number,position,role,side,image')
         .eq('match_id', matchId),
     );
     if (rows && rows.length > 0) {
@@ -124,7 +131,7 @@ export async function fetchLineup(
         const teamPlayers = unwrap<Array<MatchPlayerRow & { team_id?: string }>>(
           await supabase
             .from('match_players')
-            .select('id,name,jersey_number,position,role,team_id')
+            .select('id,name,jersey_number,position,role,team_id,image')
             .in('team_id', teamIds)
             .order('created_at', { ascending: false })
             .limit(120),

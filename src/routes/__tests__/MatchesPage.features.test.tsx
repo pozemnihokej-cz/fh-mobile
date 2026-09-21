@@ -41,6 +41,7 @@ vi.mock('../../hooks/useNearestVenue', () => ({
 afterEach(cleanup);
 beforeEach(() => {
   callIdx = 0;
+  sessionStorage.clear();
 });
 
 const now = Date.now();
@@ -321,6 +322,52 @@ describe('MatchesPage timeline and features', () => {
     expect(screen.getByText('Budoucnost HC')).toBeDefined();
     // No more future matches beyond that, so pull-next button is gone
     expect(screen.queryByTestId('match-list-pull-next')).toBeNull();
+  });
+
+  it('restores daysBack and daysForward from sessionStorage when returning from match detail', () => {
+    const pastMatch = {
+      _id: 'm-past',
+      supabaseId: 's-past',
+      homeTeamName: 'Minulost HC',
+      awayTeamName: 'Historie SK',
+      date: now - 5 * ONE_DAY_MS,
+      status: 'finished',
+      venue: 'Hřiště Eden',
+    };
+
+    queryData.matches = [pastMatch];
+    queryData.venues = [{ name: 'Hřiště Eden', gps: '50.0, 14.0' }];
+
+    // Seed sessionStorage as if user previously loaded 7 days back
+    sessionStorage.setItem(
+      'fh.matches.tenant-1.state',
+      JSON.stringify({
+        daysBack: 7,
+        daysForward: 7,
+        selectedVenue: null,
+        scrollY: 150,
+        lastMatchId: 's-past',
+      }),
+    );
+
+    render(
+      <BrowserRouter>
+        <ThemeProvider theme={fhThemeDark}>
+          <MatchesPage />
+        </ThemeProvider>
+      </BrowserRouter>,
+    );
+
+    // The match from 5 days ago is visible because daysBack was restored to 7
+    expect(screen.getByText('Minulost HC')).toBeDefined();
+
+    // Clicking the match saves lastMatchId to sessionStorage
+    const matchCard = screen.getByText('Minulost HC');
+    fireEvent.click(matchCard);
+
+    const saved = JSON.parse(sessionStorage.getItem('fh.matches.tenant-1.state') || '{}');
+    expect(saved.lastMatchId).toBe('s-past');
+    expect(saved.daysBack).toBe(7);
   });
 });
 

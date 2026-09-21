@@ -1,4 +1,4 @@
-import { useMemo, useState, useEffect } from 'react';
+import { useMemo, useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { useQuery } from 'convex/react';
 import { api } from '@convex/_generated/api';
@@ -10,6 +10,7 @@ import {
   Button,
   Snackbar,
   Stack,
+  Avatar,
   useTheme,
   alpha,
 } from '@mui/material';
@@ -32,6 +33,8 @@ import { toImageUrl } from '../lib/runtimeUrls';
 import { supabase } from '../lib/supabase';
 import { useAsyncData } from '../lib/useAsyncData';
 import { fetchLineup, groupLineup, type LineupPlayer } from '../lib/adapters/lineup';
+import { PlayerDetailModal } from './PlayerDetailModal';
+import { formatPositionCz } from '../lib/playerUtils';
 
 export function MatchDetailView({
   matchId,
@@ -43,8 +46,19 @@ export function MatchDetailView({
   onToggleStar: (e: React.MouseEvent) => void;
 }): JSX.Element {
   const theme = useTheme();
+  const tabBarRef = useRef<HTMLDivElement | null>(null);
   const [tunnelTab, setTunnelTab] = useState<'timeline' | 'overview' | 'roster'>('timeline');
   const [rosterSide, setRosterSide] = useState<'home' | 'guest'>('home');
+  const [selectedPlayerModal, setSelectedPlayerModal] = useState<LineupPlayer | null>(null);
+
+  const handleTabChange = (tab: 'timeline' | 'overview' | 'roster') => {
+    setTunnelTab(tab);
+    if (tab === 'roster') {
+      setTimeout(() => {
+        tabBarRef.current?.scrollIntoView?.({ behavior: 'smooth', block: 'start' });
+      }, 50);
+    }
+  };
 
   const match = useQuery(api.functions.matches.getBySupabaseId, { supabaseId: matchId });
   const matchConfig = useMemo(() => {
@@ -153,80 +167,134 @@ export function MatchDetailView({
   const cfg = (match as unknown as { config?: { youtubeVideoId?: string; youtubeUrl?: string } }).config;
   const youtubeVideoId = cfg?.youtubeVideoId || cfg?.youtubeUrl?.split('v=')[1];
 
-  const renderPlayerRow = (p: LineupPlayer): JSX.Element => (
-    <Box
-      key={p.id}
-      data-testid="lineup-player"
-      sx={{
-        display: 'flex',
-        alignItems: 'center',
-        gap: 1.25,
-        px: 1.5,
-        py: 0.85,
-        borderRadius: '12px',
-        bgcolor: alpha(theme.palette.common.white, 0.04),
-        border: `1px solid ${alpha(theme.palette.common.white, 0.06)}`,
-        transition: 'all 0.15s ease',
-        '&:hover': {
-          bgcolor: alpha(theme.palette.common.white, 0.07),
-          borderColor: alpha(theme.palette.common.white, 0.12),
-        },
-      }}
-    >
+  const renderPlayerRow = (p: LineupPlayer): JSX.Element => {
+    const positionLabel = formatPositionCz(p.position, p.isCoach);
+    const imageUrl = toImageUrl(p.image);
+
+    return (
       <Box
+        key={p.id}
+        data-testid="lineup-player"
+        onClick={() => setSelectedPlayerModal(p)}
+        role="button"
+        tabIndex={0}
+        aria-label={`Detail hráče ${p.name}`}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            setSelectedPlayerModal(p);
+          }
+        }}
         sx={{
-          width: 30,
-          height: 30,
-          borderRadius: '8px',
+          minHeight: 44,
           display: 'flex',
           alignItems: 'center',
-          justifyContent: 'center',
-          bgcolor: alpha(theme.palette.common.white, 0.08),
-          color: 'common.white',
-          flexShrink: 0,
+          gap: 1.25,
+          px: 1.5,
+          py: 0.85,
+          borderRadius: '14px',
+          bgcolor: alpha(theme.palette.common.white, 0.04),
+          border: `1px solid ${alpha(theme.palette.common.white, 0.06)}`,
+          cursor: 'pointer',
+          transition: 'all 0.15s ease',
+          '&:hover': {
+            bgcolor: alpha(theme.palette.common.white, 0.08),
+            borderColor: alpha(theme.palette.primary.main, 0.35),
+            transform: 'translateX(2px)',
+          },
+          ...focusRing(theme),
         }}
       >
-        <Typography sx={{ ...typeScale.bodyStrong, fontSize: '0.8rem', fontVariantNumeric: 'tabular-nums', fontWeight: 900 }}>
-          {p.isCoach ? <FhIcon name="roster" inline /> : p.jersey || '–'}
-        </Typography>
-      </Box>
-      <Typography sx={{ ...typeScale.body, flex: 1, fontSize: '0.88rem', fontWeight: 700, color: 'common.white', minWidth: 0 }} noWrap>
-        {p.name}
-      </Typography>
-      <Stack direction="row" spacing={0.75} alignItems="center" sx={{ flexShrink: 0 }}>
-        {p.isCaptain && (
-          <Chip
-            label="C"
-            size="small"
+        {/* Avatar with player photo or jersey number fallback */}
+        <Avatar
+          src={imageUrl || undefined}
+          alt={p.name}
+          sx={{
+            width: 36,
+            height: 36,
+            borderRadius: '10px',
+            bgcolor: alpha(theme.palette.common.white, 0.08),
+            color: 'common.white',
+            fontWeight: 900,
+            fontSize: '0.85rem',
+            flexShrink: 0,
+            border: `1px solid ${alpha(theme.palette.common.white, 0.12)}`,
+          }}
+        >
+          {p.isCoach ? (
+            <FhIcon name="roster" inline sx={{ fontSize: '1rem' }} />
+          ) : (
+            p.jersey || '–'
+          )}
+        </Avatar>
+
+        {/* Jersey number */}
+        {p.jersey && (
+          <Typography
             sx={{
-              height: 20,
-              fontSize: '0.62rem',
+              ...typeScale.bodyStrong,
+              fontSize: '0.82rem',
+              fontVariantNumeric: 'tabular-nums',
               fontWeight: 900,
-              bgcolor: alpha(theme.palette.primary.main, 0.2),
-              color: 'primary.main',
-              border: `1px solid ${alpha(theme.palette.primary.main, 0.4)}`,
-              '& .MuiChip-label': { px: 0.75 },
+              color: alpha(theme.palette.common.white, 0.6),
+              minWidth: 20,
+              textAlign: 'center',
             }}
-          />
+          >
+            {p.jersey}
+          </Typography>
         )}
-        {(p.isCoach || p.position) && (
-          <Chip
-            label={p.isCoach ? 'Trenér' : p.position}
-            size="small"
-            sx={{
-              height: 20,
-              fontSize: '0.65rem',
-              fontWeight: 600,
-              bgcolor: alpha(theme.palette.common.white, 0.06),
-              color: 'text.secondary',
-              border: `1px solid ${alpha(theme.palette.common.white, 0.08)}`,
-              '& .MuiChip-label': { px: 0.75 },
-            }}
-          />
-        )}
-      </Stack>
-    </Box>
-  );
+
+        {/* Player Name */}
+        <Typography
+          sx={{
+            ...typeScale.body,
+            flex: 1,
+            fontSize: '0.88rem',
+            fontWeight: 700,
+            color: 'common.white',
+            minWidth: 0,
+          }}
+          noWrap
+        >
+          {p.name}
+        </Typography>
+
+        {/* Chips */}
+        <Stack direction="row" spacing={0.75} alignItems="center" sx={{ flexShrink: 0 }}>
+          {p.isCaptain && (
+            <Chip
+              label="C"
+              size="small"
+              sx={{
+                height: 20,
+                fontSize: '0.62rem',
+                fontWeight: 900,
+                bgcolor: alpha(theme.palette.primary.main, 0.2),
+                color: 'primary.main',
+                border: `1px solid ${alpha(theme.palette.primary.main, 0.4)}`,
+                '& .MuiChip-label': { px: 0.75 },
+              }}
+            />
+          )}
+          {positionLabel && (
+            <Chip
+              label={positionLabel}
+              size="small"
+              sx={{
+                height: 20,
+                fontSize: '0.65rem',
+                fontWeight: 600,
+                bgcolor: alpha(theme.palette.common.white, 0.06),
+                color: 'text.secondary',
+                border: `1px solid ${alpha(theme.palette.common.white, 0.08)}`,
+                '& .MuiChip-label': { px: 0.75 },
+              }}
+            />
+          )}
+        </Stack>
+      </Box>
+    );
+  };
 
   return (
     <Box>
@@ -275,6 +343,7 @@ export function MatchDetailView({
 
       {/* Segmented Tunnel Navigation Tabs */}
       <Box
+        ref={tabBarRef}
         sx={{
           display: 'flex',
           bgcolor: alpha(theme.palette.common.white, 0.05),
@@ -282,11 +351,12 @@ export function MatchDetailView({
           borderRadius: '14px',
           mb: 3,
           border: `1px solid ${alpha(theme.palette.common.white, 0.08)}`,
+          scrollMarginTop: { xs: '64px', sm: '76px' },
         }}
       >
         <Button
           fullWidth
-          onClick={() => setTunnelTab('timeline')}
+          onClick={() => handleTabChange('timeline')}
           sx={{
             py: 0.8,
             borderRadius: '10px',
@@ -304,7 +374,7 @@ export function MatchDetailView({
         </Button>
         <Button
           fullWidth
-          onClick={() => setTunnelTab('overview')}
+          onClick={() => handleTabChange('overview')}
           sx={{
             py: 0.8,
             borderRadius: '10px',
@@ -322,7 +392,7 @@ export function MatchDetailView({
         </Button>
         <Button
           fullWidth
-          onClick={() => setTunnelTab('roster')}
+          onClick={() => handleTabChange('roster')}
           sx={{
             py: 0.8,
             borderRadius: '10px',
@@ -586,6 +656,22 @@ export function MatchDetailView({
           );
         })() : undefined}
       </Snackbar>
+
+      {/* Enlarged Player Detail Modal */}
+      <PlayerDetailModal
+        player={selectedPlayerModal}
+        teamName={
+          selectedPlayerModal?.side === 'guest'
+            ? (match.awayClubName ?? match.awayTeamName)
+            : (match.homeClubName ?? match.homeTeamName)
+        }
+        teamLogo={
+          selectedPlayerModal?.side === 'guest'
+            ? (match.awayClubLogo ?? match.awayTeamLogo)
+            : (match.homeClubLogo ?? match.homeTeamLogo)
+        }
+        onClose={() => setSelectedPlayerModal(null)}
+      />
     </Box>
   );
 }

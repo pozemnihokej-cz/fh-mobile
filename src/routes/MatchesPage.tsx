@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useQuery } from 'convex/react';
 import { api } from '@convex/_generated/api';
@@ -85,16 +85,89 @@ export default function MatchesPage(): JSX.Element {
 
   const { nearestVenueName, status: geoStatus } = useNearestVenue(visibleVenues);
 
-  // Venue filtering & pagination state
-  const [selectedVenue, setSelectedVenue] = useState<string>('all');
-  const [daysBack, setDaysBack] = useState<number>(0);
-  const [daysForward, setDaysForward] = useState<number>(7);
+  // Session storage state persistence — remembers revealed days & scroll position
+  // so opening a match detail and navigating Back keeps the user in place.
+  const sessionKey = `fh.matches.${tenantId || 'default'}.state`;
+  const savedState = useMemo(() => {
+    try {
+      const raw = sessionStorage.getItem(sessionKey);
+      return raw ? JSON.parse(raw) : null;
+    } catch {
+      return null;
+    }
+  }, [sessionKey]);
 
-  // Reset revealed past and future days when filter changes
+  // Venue filtering & pagination state — initialized from saved session if available
+  const [selectedVenue, setSelectedVenue] = useState<string>(savedState?.selectedVenue ?? 'all');
+  const [daysBack, setDaysBack] = useState<number>(savedState?.daysBack ?? 0);
+  const [daysForward, setDaysForward] = useState<number>(savedState?.daysForward ?? 7);
+
+  // Persist pagination & venue state to session storage
   useEffect(() => {
-    setDaysBack(0);
-    setDaysForward(7);
-  }, [selectedVenue]);
+    try {
+      const currentRaw = sessionStorage.getItem(sessionKey);
+      const prevObj = currentRaw ? JSON.parse(currentRaw) : {};
+      sessionStorage.setItem(
+        sessionKey,
+        JSON.stringify({
+          ...prevObj,
+          selectedVenue,
+          daysBack,
+          daysForward,
+        }),
+      );
+    } catch {
+      // sessionStorage unavailable
+    }
+  }, [sessionKey, selectedVenue, daysBack, daysForward]);
+
+  // Track window scroll continuously
+  useEffect(() => {
+    const onScroll = () => {
+      try {
+        const currentRaw = sessionStorage.getItem(sessionKey);
+        const prevObj = currentRaw ? JSON.parse(currentRaw) : {};
+        sessionStorage.setItem(
+          sessionKey,
+          JSON.stringify({
+            ...prevObj,
+            scrollY: window.scrollY,
+          }),
+        );
+      } catch {
+        // sessionStorage unavailable
+      }
+    };
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
+  }, [sessionKey]);
+
+  // Reset revealed past and future days ONLY when venue filter is deliberately changed by the user
+  const prevVenueRef = useRef(selectedVenue);
+  useEffect(() => {
+    if (prevVenueRef.current !== selectedVenue) {
+      prevVenueRef.current = selectedVenue;
+      setDaysBack(0);
+      setDaysForward(7);
+      try {
+        const currentRaw = sessionStorage.getItem(sessionKey);
+        const prevObj = currentRaw ? JSON.parse(currentRaw) : {};
+        sessionStorage.setItem(
+          sessionKey,
+          JSON.stringify({
+            ...prevObj,
+            selectedVenue,
+            daysBack: 0,
+            daysForward: 7,
+            scrollY: 0,
+            lastMatchId: undefined,
+          }),
+        );
+      } catch {
+        // sessionStorage unavailable
+      }
+    }
+  }, [selectedVenue, sessionKey]);
 
   // Extract unique venues that have matches
   const availableVenues = useMemo(() => {
@@ -184,6 +257,57 @@ export default function MatchesPage(): JSX.Element {
       totalCount: filteredMatches.length,
     };
   }, [filteredMatches, daysBack, daysForward]);
+
+  // Restore scroll position when returning from match detail
+  const didRestoreScroll = useRef(false);
+  useEffect(() => {
+    if (matches === undefined || timeline.days.length === 0 || didRestoreScroll.current) return;
+
+    try {
+      const raw = sessionStorage.getItem(sessionKey);
+      if (!raw) return;
+      const parsed = JSON.parse(raw);
+      didRestoreScroll.current = true;
+
+      const timer = setTimeout(() => {
+        if (parsed.lastMatchId) {
+          const el = document.getElementById(`match-item-${parsed.lastMatchId}`);
+          if (el) {
+            el.scrollIntoView?.({ block: 'center', behavior: 'instant' as any });
+            return;
+          }
+        }
+        if (typeof parsed.scrollY === 'number' && parsed.scrollY > 0) {
+          window.scrollTo?.({ top: parsed.scrollY, behavior: 'instant' as any });
+        }
+      }, 50);
+
+      return () => clearTimeout(timer);
+    } catch {
+      // noop
+    }
+  }, [matches, timeline.days.length, sessionKey]);
+
+  const handleMatchClick = (m: MatchCardData) => {
+    try {
+      const currentRaw = sessionStorage.getItem(sessionKey);
+      const prevObj = currentRaw ? JSON.parse(currentRaw) : {};
+      sessionStorage.setItem(
+        sessionKey,
+        JSON.stringify({
+          ...prevObj,
+          selectedVenue,
+          daysBack,
+          daysForward,
+          scrollY: window.scrollY,
+          lastMatchId: m.supabaseId,
+        }),
+      );
+    } catch {
+      // noop
+    }
+    navigate(m.supabaseId);
+  };
 
   return (
     <Box sx={{ minHeight: '100vh', bgcolor: 'transparent', color: 'common.white', pb: 12 }}>
@@ -467,6 +591,7 @@ export default function MatchesPage(): JSX.Element {
                       xs={12}
                       md={6}
                       key={m._id}
+                      id={`match-item-${m.supabaseId}`}
                       sx={{
                         '@media (orientation: portrait)': {
                           maxWidth: '100%',
@@ -482,7 +607,7 @@ export default function MatchesPage(): JSX.Element {
                           e.stopPropagation();
                           toggleMatch(m.supabaseId);
                         }}
-                        onClick={() => navigate(m.supabaseId)}
+                        onClick={() => handleMatchClick(m)}
                       />
                     </Grid>
                   ))}

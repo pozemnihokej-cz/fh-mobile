@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { Box, Container, Typography, Stack, Button, Chip, alpha, useTheme } from '@mui/material';
+import { Box, Container, Typography, Stack, Button, Chip, Avatar, alpha, useTheme } from '@mui/material';
 import { StickyGlassHeader, EmptyState, FhIcon, typeScale, focusRing } from '@fh/ui';
 import { useTranslation } from '@fh/i18n';
 import { AsyncBoundary } from '../components/AsyncBoundary';
@@ -8,11 +8,14 @@ import { FanListSkeleton } from '../components/FanListSkeleton';
 import { useAsyncData } from '../lib/useAsyncData';
 import { supabase } from '../lib/supabase';
 import { fetchLineup, type LineupPlayer } from '../lib/adapters/lineup';
+import { toImageUrl } from '../lib/runtimeUrls';
+import { formatPositionCz } from '../lib/playerUtils';
+import { PlayerDetailModal } from '../components/PlayerDetailModal';
 
 /**
  * PRD-055 Phase 2 / Redesign: match lineup at `/<slug>/matches/:matchId/lineup`.
  * Compact OM-style presentation with Home/Away team tabs, jersey number badges,
- * and captain/position chips styled for fan dark theme.
+ * player photos, and captain/position chips styled for fan dark theme.
  */
 export default function LineupPage(): JSX.Element {
   const { matchId } = useParams<{ matchId: string }>();
@@ -20,6 +23,7 @@ export default function LineupPage(): JSX.Element {
   const { t } = useTranslation();
   const white = theme.palette.common.white;
   const [selectedSide, setSelectedSide] = useState<'home' | 'guest'>('home');
+  const [selectedPlayerModal, setSelectedPlayerModal] = useState<LineupPlayer | null>(null);
 
   const { data, error, loading, refetch } = useAsyncData(
     () => fetchLineup(supabase, matchId as string),
@@ -31,85 +35,134 @@ export default function LineupPage(): JSX.Element {
 
   const currentPlayers = selectedSide === 'home' ? lineup.home : lineup.guest;
 
-  const renderPlayer = (p: LineupPlayer): JSX.Element => (
-    <Box
-      key={p.id}
-      data-testid="lineup-player"
-      sx={{
-        display: 'flex',
-        alignItems: 'center',
-        gap: 1.25,
-        px: 1.5,
-        py: 0.9,
-        borderRadius: '12px',
-        bgcolor: alpha(white, 0.04),
-        border: `1px solid ${alpha(white, 0.06)}`,
-        transition: 'all 0.15s ease',
-        '&:hover': {
-          bgcolor: alpha(white, 0.07),
-          borderColor: alpha(white, 0.12),
-        },
-      }}
-    >
-      {/* Jersey Number Box (OM-style compact badge) */}
+  const renderPlayer = (p: LineupPlayer): JSX.Element => {
+    const positionLabel = formatPositionCz(p.position, p.isCoach);
+    const imageUrl = toImageUrl(p.image);
+
+    return (
       <Box
+        key={p.id}
+        data-testid="lineup-player"
+        onClick={() => setSelectedPlayerModal(p)}
+        role="button"
+        tabIndex={0}
+        aria-label={`Detail hráče ${p.name}`}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            setSelectedPlayerModal(p);
+          }
+        }}
         sx={{
-          width: 32,
-          height: 32,
-          borderRadius: '8px',
+          minHeight: 44,
           display: 'flex',
           alignItems: 'center',
-          justifyContent: 'center',
-          bgcolor: alpha(white, 0.08),
-          color: 'common.white',
-          flexShrink: 0,
+          gap: 1.25,
+          px: 1.5,
+          py: 0.85,
+          borderRadius: '14px',
+          bgcolor: alpha(white, 0.04),
+          border: `1px solid ${alpha(white, 0.06)}`,
+          cursor: 'pointer',
+          transition: 'all 0.15s ease',
+          '&:hover': {
+            bgcolor: alpha(white, 0.08),
+            borderColor: alpha(theme.palette.primary.main, 0.35),
+            transform: 'translateX(2px)',
+          },
+          ...focusRing(theme),
         }}
       >
-        <Typography sx={{ ...typeScale.bodyStrong, fontSize: '0.82rem', fontVariantNumeric: 'tabular-nums', fontWeight: 900 }}>
-          {p.isCoach ? <FhIcon name="roster" inline /> : p.jersey || '–'}
-        </Typography>
-      </Box>
+        {/* Avatar with player photo or jersey number fallback */}
+        <Avatar
+          src={imageUrl || undefined}
+          alt={p.name}
+          sx={{
+            width: 36,
+            height: 36,
+            borderRadius: '10px',
+            bgcolor: alpha(white, 0.08),
+            color: 'common.white',
+            fontWeight: 900,
+            fontSize: '0.85rem',
+            flexShrink: 0,
+            border: `1px solid ${alpha(white, 0.12)}`,
+          }}
+        >
+          {p.isCoach ? (
+            <FhIcon name="roster" inline sx={{ fontSize: '1rem' }} />
+          ) : (
+            p.jersey || '–'
+          )}
+        </Avatar>
 
-      {/* Player Name */}
-      <Typography sx={{ ...typeScale.body, flex: 1, fontSize: '0.88rem', fontWeight: 700, color: 'common.white', minWidth: 0 }} noWrap>
-        {p.name}
-      </Typography>
-
-      {/* Role / Position Chips */}
-      <Stack direction="row" spacing={0.75} alignItems="center" sx={{ flexShrink: 0 }}>
-        {p.isCaptain && (
-          <Chip
-            label="C"
-            size="small"
+        {/* Jersey number */}
+        {p.jersey && (
+          <Typography
             sx={{
-              height: 20,
-              fontSize: '0.62rem',
+              ...typeScale.bodyStrong,
+              fontSize: '0.82rem',
+              fontVariantNumeric: 'tabular-nums',
               fontWeight: 900,
-              bgcolor: alpha(theme.palette.primary.main, 0.2),
-              color: 'primary.main',
-              border: `1px solid ${alpha(theme.palette.primary.main, 0.4)}`,
-              '& .MuiChip-label': { px: 0.75 },
+              color: alpha(white, 0.6),
+              minWidth: 20,
+              textAlign: 'center',
             }}
-          />
+          >
+            {p.jersey}
+          </Typography>
         )}
-        {(p.isCoach || p.position) && (
-          <Chip
-            label={p.isCoach ? t('mobile.fan.lineup.coach') : p.position}
-            size="small"
-            sx={{
-              height: 20,
-              fontSize: '0.65rem',
-              fontWeight: 600,
-              bgcolor: alpha(white, 0.06),
-              color: 'text.secondary',
-              border: `1px solid ${alpha(white, 0.08)}`,
-              '& .MuiChip-label': { px: 0.75 },
-            }}
-          />
-        )}
-      </Stack>
-    </Box>
-  );
+
+        {/* Player Name */}
+        <Typography
+          sx={{
+            ...typeScale.body,
+            flex: 1,
+            fontSize: '0.88rem',
+            fontWeight: 700,
+            color: 'common.white',
+            minWidth: 0,
+          }}
+          noWrap
+        >
+          {p.name}
+        </Typography>
+
+        {/* Role / Position Chips */}
+        <Stack direction="row" spacing={0.75} alignItems="center" sx={{ flexShrink: 0 }}>
+          {p.isCaptain && (
+            <Chip
+              label="C"
+              size="small"
+              sx={{
+                height: 20,
+                fontSize: '0.62rem',
+                fontWeight: 900,
+                bgcolor: alpha(theme.palette.primary.main, 0.2),
+                color: 'primary.main',
+                border: `1px solid ${alpha(theme.palette.primary.main, 0.4)}`,
+                '& .MuiChip-label': { px: 0.75 },
+              }}
+            />
+          )}
+          {positionLabel && (
+            <Chip
+              label={positionLabel}
+              size="small"
+              sx={{
+                height: 20,
+                fontSize: '0.65rem',
+                fontWeight: 600,
+                bgcolor: alpha(white, 0.06),
+                color: 'text.secondary',
+                border: `1px solid ${alpha(white, 0.08)}`,
+                '& .MuiChip-label': { px: 0.75 },
+              }}
+            />
+          )}
+        </Stack>
+      </Box>
+    );
+  };
 
   return (
     <Box sx={{ minHeight: '100vh', bgcolor: 'transparent', color: 'common.white', pb: 12 }}>
@@ -210,6 +263,17 @@ export default function LineupPage(): JSX.Element {
           </Box>
         </AsyncBoundary>
       </Container>
+
+      {/* Enlarged Player Detail Modal */}
+      <PlayerDetailModal
+        player={selectedPlayerModal}
+        teamName={
+          selectedPlayerModal?.side === 'guest'
+            ? t('mobile.fan.lineup.guest')
+            : t('mobile.fan.lineup.home')
+        }
+        onClose={() => setSelectedPlayerModal(null)}
+      />
     </Box>
   );
 }
