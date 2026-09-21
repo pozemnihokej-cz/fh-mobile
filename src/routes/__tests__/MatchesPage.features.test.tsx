@@ -215,6 +215,49 @@ describe('MatchesPage timeline and features', () => {
     expect(screen.queryByText('Eden Domácí')).toBeNull();
   });
 
+  it('filters matches independently by league and team', () => {
+    const match1 = {
+      _id: 'm-1',
+      supabaseId: 's-1',
+      homeTeamName: 'Slavia A',
+      awayTeamName: 'Bohemians A',
+      date: now + 3600_000,
+      status: 'scheduled',
+      leagueName: 'Extraliga muži',
+    };
+    const match2 = {
+      _id: 'm-2',
+      supabaseId: 's-2',
+      homeTeamName: 'Praga B',
+      awayTeamName: 'Hostivař B',
+      date: now + 7200_000,
+      status: 'scheduled',
+      leagueName: '1. liga muži',
+    };
+    queryData.matches = [match1, match2];
+    queryData.venues = [];
+
+    render(
+      <BrowserRouter>
+        <ThemeProvider theme={fhThemeDark}>
+          <MatchesPage />
+        </ThemeProvider>
+      </BrowserRouter>,
+    );
+
+    expect(screen.getByText('Slavia A')).toBeDefined();
+    expect(screen.getByText('Praga B')).toBeDefined();
+
+    // Select League Extraliga muži
+    const leagueInput = screen.getByLabelText('Filtrovat podle soutěže');
+    fireEvent.mouseDown(leagueInput);
+    const leagueOption = screen.getByRole('option', { name: 'Extraliga muži' });
+    fireEvent.click(leagueOption);
+
+    expect(screen.getByText('Slavia A')).toBeDefined();
+    expect(screen.queryByText('Praga B')).toBeNull();
+  });
+
   it('renders match items with xs={12} and md={6} avoiding 2-column sm={6} on portrait tablets', () => {
     const testMatch = {
       _id: 'm-grid-test',

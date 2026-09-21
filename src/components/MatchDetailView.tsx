@@ -53,11 +53,6 @@ export function MatchDetailView({
 
   const handleTabChange = (tab: 'timeline' | 'overview' | 'roster') => {
     setTunnelTab(tab);
-    if (tab === 'roster') {
-      setTimeout(() => {
-        tabBarRef.current?.scrollIntoView?.({ behavior: 'smooth', block: 'start' });
-      }, 50);
-    }
   };
 
   const match = useQuery(api.functions.matches.getBySupabaseId, { supabaseId: matchId });
@@ -413,6 +408,75 @@ export function MatchDetailView({
       {/* Tab: Průběh (Timeline) */}
       {tunnelTab === 'timeline' && (
         <Box sx={{ mb: 4 }}>
+          {/* Active Penalties strip */}
+          {derivedState.activeSuspensions && derivedState.activeSuspensions.length > 0 && (
+            <Paper
+              elevation={0}
+              sx={{
+                p: 1.75,
+                mb: 2.5,
+                borderRadius: '16px',
+                bgcolor: alpha(theme.palette.warning.main, 0.12),
+                border: `1px solid ${alpha(theme.palette.warning.main, 0.35)}`,
+              }}
+            >
+              <Typography
+                variant="caption"
+                sx={{
+                  color: theme.palette.warning.light ?? '#ffd600',
+                  fontWeight: 900,
+                  letterSpacing: '0.08em',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 1,
+                  mb: 1.25,
+                }}
+              >
+                <FhIcon name="timer" inline sx={{ fontSize: '1rem' }} />
+                AKTUÁLNĚ VYLOUČENÍ
+              </Typography>
+              <Stack spacing={1}>
+                {derivedState.activeSuspensions.map((s) => {
+                  const min = Math.floor(s.remainingSeconds / 60);
+                  const sec = s.remainingSeconds % 60;
+                  const timeStr = `${min}:${sec.toString().padStart(2, '0')}`;
+                  const teamName = s.side === 'home'
+                    ? (match.homeClubName ?? match.homeTeamName)
+                    : (match.awayClubName ?? match.awayTeamName);
+                  return (
+                    <Box key={s.id} sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                        <Box
+                          sx={{
+                            width: 10,
+                            height: 14,
+                            borderRadius: '3px',
+                            bgcolor: s.cardColor === 'yellow' ? '#ffd600' : s.cardColor === 'green' ? '#4caf50' : '#ff5252',
+                          }}
+                        />
+                        <Typography variant="body2" sx={{ fontWeight: 800, color: 'common.white', fontSize: '0.85rem' }}>
+                          {s.player || 'Hráč'} <Typography component="span" sx={{ color: 'text.secondary', fontSize: '0.78rem' }}>({teamName})</Typography>
+                        </Typography>
+                      </Box>
+                      <Chip
+                        label={`Zbývá ${timeStr}`}
+                        size="small"
+                        sx={{
+                          height: 22,
+                          fontWeight: 900,
+                          fontSize: '0.72rem',
+                          bgcolor: alpha(theme.palette.warning.main, 0.25),
+                          color: theme.palette.warning.light ?? '#ffd600',
+                          border: `1px solid ${alpha(theme.palette.warning.main, 0.4)}`,
+                        }}
+                      />
+                    </Box>
+                  );
+                })}
+              </Stack>
+            </Paper>
+          )}
+
           <Typography variant="subtitle2" sx={{ mb: 2, fontWeight: 900, color: 'text.primary', display: 'flex', alignItems: 'center', gap: 1.25, letterSpacing: '0.04em' }}>
             <Box sx={{ width: 4, height: 16, bgcolor: 'primary.main', borderRadius: 1 }} />
             ČASOVÁ OSA UTKÁNÍ
@@ -427,6 +491,7 @@ export function MatchDetailView({
             partType={matchConfig?.partType}
             gameTime={matchConfig?.gameTime}
             variant="fancy"
+            activeSuspensions={derivedState.activeSuspensions}
           />
         </Box>
       )}
@@ -524,24 +589,6 @@ export function MatchDetailView({
               </Button>
             </Box>
           )}
-
-          <Button
-            component={Link}
-            to="lineup"
-            relative="path"
-            fullWidth
-            variant="contained"
-            startIcon={<FhIcon name="roster" inline />}
-            sx={{
-              borderRadius: '14px',
-              py: 1.2,
-              fontWeight: 800,
-              fontSize: '0.88rem',
-              ...focusRing(theme),
-            }}
-          >
-            Zobrazit kompletní soupisky
-          </Button>
         </Box>
       )}
 
@@ -562,6 +609,7 @@ export function MatchDetailView({
               fullWidth
               onClick={() => setRosterSide('home')}
               sx={{
+                ...focusRing(theme),
                 py: 0.7,
                 borderRadius: '8px',
                 bgcolor: rosterSide === 'home' ? alpha(theme.palette.primary.main, 0.2) : 'transparent',
@@ -570,8 +618,23 @@ export function MatchDetailView({
                 fontWeight: 800,
                 fontSize: '0.8rem',
                 textTransform: 'none',
-                ...focusRing(theme),
               }}
+              startIcon={
+                <Avatar
+                  src={toImageUrl(match.homeClubLogo ?? match.homeTeamLogo) || undefined}
+                  variant={match.homeClubLogo || match.homeTeamLogo ? 'rounded' : 'circular'}
+                  imgProps={{ style: { objectFit: 'contain' } }}
+                  sx={{
+                    width: 22,
+                    height: 22,
+                    bgcolor: 'transparent',
+                    fontSize: '0.72rem',
+                    fontWeight: 900,
+                  }}
+                >
+                  {(match.homeClubName ?? match.homeTeamName)[0]}
+                </Avatar>
+              }
             >
               {match.homeTeamName} {lineup.home.length > 0 && `(${lineup.home.length})`}
             </Button>
@@ -579,6 +642,7 @@ export function MatchDetailView({
               fullWidth
               onClick={() => setRosterSide('guest')}
               sx={{
+                ...focusRing(theme),
                 py: 0.7,
                 borderRadius: '8px',
                 bgcolor: rosterSide === 'guest' ? alpha(theme.palette.primary.main, 0.2) : 'transparent',
@@ -587,8 +651,23 @@ export function MatchDetailView({
                 fontWeight: 800,
                 fontSize: '0.8rem',
                 textTransform: 'none',
-                ...focusRing(theme),
               }}
+              startIcon={
+                <Avatar
+                  src={toImageUrl(match.awayClubLogo ?? match.awayTeamLogo) || undefined}
+                  variant={match.awayClubLogo || match.awayTeamLogo ? 'rounded' : 'circular'}
+                  imgProps={{ style: { objectFit: 'contain' } }}
+                  sx={{
+                    width: 22,
+                    height: 22,
+                    bgcolor: 'transparent',
+                    fontSize: '0.72rem',
+                    fontWeight: 900,
+                  }}
+                >
+                  {(match.awayClubName ?? match.awayTeamName)[0]}
+                </Avatar>
+              }
             >
               {match.awayTeamName} {lineup.guest.length > 0 && `(${lineup.guest.length})`}
             </Button>

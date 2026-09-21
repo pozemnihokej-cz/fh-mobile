@@ -97,12 +97,14 @@ export default function MatchesPage(): JSX.Element {
     }
   }, [sessionKey]);
 
-  // Venue filtering & pagination state — initialized from saved session if available
+  // Independent filtering & pagination state — initialized from saved session if available
   const [selectedVenue, setSelectedVenue] = useState<string>(savedState?.selectedVenue ?? 'all');
+  const [selectedLeague, setSelectedLeague] = useState<string>(savedState?.selectedLeague ?? 'all');
+  const [selectedTeam, setSelectedTeam] = useState<string>(savedState?.selectedTeam ?? 'all');
   const [daysBack, setDaysBack] = useState<number>(savedState?.daysBack ?? 0);
   const [daysForward, setDaysForward] = useState<number>(savedState?.daysForward ?? 7);
 
-  // Persist pagination & venue state to session storage
+  // Persist pagination & filter state to session storage
   useEffect(() => {
     try {
       const currentRaw = sessionStorage.getItem(sessionKey);
@@ -112,6 +114,8 @@ export default function MatchesPage(): JSX.Element {
         JSON.stringify({
           ...prevObj,
           selectedVenue,
+          selectedLeague,
+          selectedTeam,
           daysBack,
           daysForward,
         }),
@@ -119,7 +123,7 @@ export default function MatchesPage(): JSX.Element {
     } catch {
       // sessionStorage unavailable
     }
-  }, [sessionKey, selectedVenue, daysBack, daysForward]);
+  }, [sessionKey, selectedVenue, selectedLeague, selectedTeam, daysBack, daysForward]);
 
   // Track window scroll continuously
   useEffect(() => {
@@ -142,11 +146,16 @@ export default function MatchesPage(): JSX.Element {
     return () => window.removeEventListener('scroll', onScroll);
   }, [sessionKey]);
 
-  // Reset revealed past and future days ONLY when venue filter is deliberately changed by the user
-  const prevVenueRef = useRef(selectedVenue);
+  // Reset revealed past and future days when any filter is deliberately changed by the user
+  const prevFilterRef = useRef({ selectedVenue, selectedLeague, selectedTeam });
   useEffect(() => {
-    if (prevVenueRef.current !== selectedVenue) {
-      prevVenueRef.current = selectedVenue;
+    const prev = prevFilterRef.current;
+    if (
+      prev.selectedVenue !== selectedVenue ||
+      prev.selectedLeague !== selectedLeague ||
+      prev.selectedTeam !== selectedTeam
+    ) {
+      prevFilterRef.current = { selectedVenue, selectedLeague, selectedTeam };
       setDaysBack(0);
       setDaysForward(7);
       try {
@@ -157,6 +166,8 @@ export default function MatchesPage(): JSX.Element {
           JSON.stringify({
             ...prevObj,
             selectedVenue,
+            selectedLeague,
+            selectedTeam,
             daysBack: 0,
             daysForward: 7,
             scrollY: 0,
@@ -167,7 +178,7 @@ export default function MatchesPage(): JSX.Element {
         // sessionStorage unavailable
       }
     }
-  }, [selectedVenue, sessionKey]);
+  }, [selectedVenue, selectedLeague, selectedTeam, sessionKey]);
 
   // Extract unique venues that have matches
   const availableVenues = useMemo(() => {
@@ -181,7 +192,32 @@ export default function MatchesPage(): JSX.Element {
     return Array.from(set).sort();
   }, [matches]);
 
-  // Options for Autocomplete list box
+  // Extract unique leagues that have matches
+  const availableLeagues = useMemo(() => {
+    const set = new Set<string>();
+    if (matches) {
+      for (const m of matches as MatchCardData[]) {
+        if (m.leagueName && m.leagueName.trim()) set.add(m.leagueName.trim());
+      }
+    }
+    return Array.from(set).sort();
+  }, [matches]);
+
+  // Extract unique teams/clubs that have matches
+  const availableTeams = useMemo(() => {
+    const set = new Set<string>();
+    if (matches) {
+      for (const m of matches as MatchCardData[]) {
+        const home = m.homeClubName ?? m.homeTeamName;
+        const away = m.awayClubName ?? m.awayTeamName;
+        if (home && home.trim()) set.add(home.trim());
+        if (away && away.trim()) set.add(away.trim());
+      }
+    }
+    return Array.from(set).sort();
+  }, [matches]);
+
+  // Options for Venue Autocomplete
   const venueOptions = useMemo<VenueOption[]>(() => {
     const opts: VenueOption[] = [{ id: 'all', label: 'Všechna hřiště' }];
     if (geoStatus === 'found' && nearestVenueName) {
@@ -198,7 +234,7 @@ export default function MatchesPage(): JSX.Element {
     return opts;
   }, [availableVenues, nearestVenueName, geoStatus]);
 
-  // Filter matches by selected venue
+  // Filter matches by selected venue, league, and team independently
   const filteredMatches = useMemo(() => {
     if (!matches) return [];
     return (matches as MatchCardData[]).filter((m) => {
@@ -207,9 +243,24 @@ export default function MatchesPage(): JSX.Element {
         const v = m.venue ?? m.location;
         if (v !== selectedVenue) return false;
       }
+      if (selectedLeague !== 'all') {
+        if (m.leagueName !== selectedLeague) return false;
+      }
+      if (selectedTeam !== 'all') {
+        const home = m.homeClubName ?? m.homeTeamName;
+        const away = m.awayClubName ?? m.awayTeamName;
+        if (
+          home !== selectedTeam &&
+          away !== selectedTeam &&
+          m.homeTeamName !== selectedTeam &&
+          m.awayTeamName !== selectedTeam
+        ) {
+          return false;
+        }
+      }
       return true;
     });
-  }, [matches, selectedVenue]);
+  }, [matches, selectedVenue, selectedLeague, selectedTeam]);
 
   // Group into timeline days (oldest revealed past day at top, future at bottom)
   const timeline = useMemo(() => {
@@ -297,6 +348,8 @@ export default function MatchesPage(): JSX.Element {
         JSON.stringify({
           ...prevObj,
           selectedVenue,
+          selectedLeague,
+          selectedTeam,
           daysBack,
           daysForward,
           scrollY: window.scrollY,
@@ -358,131 +411,313 @@ export default function MatchesPage(): JSX.Element {
       />
 
       <Container maxWidth="lg" sx={{ px: { xs: 2, sm: 3 } }}>
-        {/* Venue Filter Bar with Autocomplete & Nearby quick chip */}
-        <Box
-          sx={{
-            display: 'flex',
-            flexDirection: { xs: 'column', sm: 'row' },
-            alignItems: { xs: 'stretch', sm: 'center' },
-            gap: 1.5,
-            mb: 2.5,
-          }}
-        >
-          <Autocomplete<VenueOption, false, boolean, false>
-            id="venue-filter-autocomplete"
-            data-testid="venue-filter-autocomplete"
-            size="small"
-            options={venueOptions}
-            getOptionLabel={(opt) => (typeof opt === 'string' ? opt : opt.label)}
-            isOptionEqualToValue={(opt, val) => opt.id === val.id}
-            value={venueOptions.find((o) => o.id === selectedVenue) ?? venueOptions[0]}
-            onChange={(_, newVal) => {
-              setSelectedVenue(newVal ? newVal.id : 'all');
-            }}
-            disableClearable={selectedVenue === 'all'}
-            renderInput={(params) => (
-              <TextField
-                {...params}
-                placeholder="Filtrovat podle hřiště…"
-                variant="outlined"
+        {/* Independent Multi-Filter Bar: Venue, League, Team */}
+        <Box sx={{ mb: 2.5 }}>
+          <Grid container spacing={1.25} alignItems="center">
+            {/* 1. Venue Filter */}
+            <Grid item xs={12} sm={4}>
+              <Autocomplete<VenueOption, false, boolean, false>
+                id="venue-filter-autocomplete"
+                data-testid="venue-filter-autocomplete"
                 size="small"
-                inputProps={{
-                  ...params.inputProps,
-                  'aria-label': 'Filtrovat podle hřiště',
+                options={venueOptions}
+                getOptionLabel={(opt) => (typeof opt === 'string' ? opt : opt.label)}
+                isOptionEqualToValue={(opt, val) => opt.id === val.id}
+                value={venueOptions.find((o) => o.id === selectedVenue) ?? venueOptions[0]}
+                onChange={(_, newVal) => {
+                  setSelectedVenue(newVal ? newVal.id : 'all');
                 }}
-                InputProps={{
-                  ...params.InputProps,
-                  startAdornment: (
-                    <>
-                      <Box component="span" sx={{ display: 'inline-flex', mr: 0.75, color: 'primary.main', alignItems: 'center' }}>
-                        <FhIcon name="location" inline />
-                      </Box>
-                      {params.InputProps.startAdornment}
-                    </>
-                  ),
-                }}
-                sx={{
-                  '& .MuiOutlinedInput-root': {
-                    bgcolor: alpha(theme.palette.common.white, 0.05),
-                    borderRadius: '12px',
-                    color: 'common.white',
-                    fontSize: '0.85rem',
-                    '& fieldset': {
-                      borderColor: alpha(theme.palette.common.white, 0.15),
-                    },
-                    '&:hover fieldset': {
-                      borderColor: alpha(theme.palette.primary.main, 0.5),
-                    },
-                    '&.Mui-focused fieldset': {
-                      borderColor: 'primary.main',
-                    },
-                  },
-                }}
+                disableClearable={selectedVenue === 'all'}
+                renderInput={(params) => (
+                  <TextField
+                    {...params}
+                    placeholder="Filtrovat podle hřiště…"
+                    variant="outlined"
+                    size="small"
+                    inputProps={{
+                      ...params.inputProps,
+                      'aria-label': 'Filtrovat podle hřiště',
+                    }}
+                    InputProps={{
+                      ...params.InputProps,
+                      startAdornment: (
+                        <>
+                          <Box component="span" sx={{ display: 'inline-flex', mr: 0.75, color: 'primary.main', alignItems: 'center' }}>
+                            <FhIcon name="location" inline />
+                          </Box>
+                          {params.InputProps.startAdornment}
+                        </>
+                      ),
+                    }}
+                    sx={{
+                      '& .MuiOutlinedInput-root': {
+                        bgcolor: alpha(theme.palette.common.white, 0.05),
+                        borderRadius: '12px',
+                        color: 'common.white',
+                        fontSize: '0.85rem',
+                        '& fieldset': {
+                          borderColor: selectedVenue !== 'all' ? 'primary.main' : alpha(theme.palette.common.white, 0.15),
+                        },
+                        '&:hover fieldset': {
+                          borderColor: alpha(theme.palette.primary.main, 0.5),
+                        },
+                        '&.Mui-focused fieldset': {
+                          borderColor: 'primary.main',
+                        },
+                      },
+                    }}
+                  />
+                )}
+                renderOption={(props, option) => (
+                  <li {...props} key={option.id}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, width: '100%', py: 0.25 }}>
+                      {option.isNearby ? (
+                        <FhIcon name="location" inline sx={{ color: 'primary.main', fontSize: '0.95rem' }} />
+                      ) : null}
+                      <Typography sx={{ fontSize: '0.85rem', fontWeight: option.id === selectedVenue ? 800 : 500 }}>
+                        {option.label}
+                      </Typography>
+                    </Box>
+                  </li>
+                )}
+                PaperComponent={(props) => (
+                  <Paper
+                    {...props}
+                    sx={{
+                      bgcolor: alpha(theme.palette.background.paper, 0.96),
+                      backdropFilter: 'blur(16px)',
+                      border: `1px solid ${alpha(theme.palette.common.white, 0.15)}`,
+                      borderRadius: '12px',
+                      color: 'common.white',
+                      mt: 0.5,
+                      boxShadow: `0 8px 32px ${alpha(theme.palette.common.black, 0.5)}`,
+                    }}
+                  />
+                )}
+                sx={{ ...focusRing(theme) }}
               />
-            )}
-            renderOption={(props, option) => (
-              <li {...props} key={option.id}>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, width: '100%', py: 0.25 }}>
-                  {option.isNearby ? (
-                    <FhIcon name="location" inline sx={{ color: 'primary.main', fontSize: '0.95rem' }} />
-                  ) : null}
-                  <Typography sx={{ fontSize: '0.85rem', fontWeight: option.id === selectedVenue ? 800 : 500 }}>
-                    {option.label}
-                  </Typography>
-                </Box>
-              </li>
-            )}
-            PaperComponent={(props) => (
-              <Paper
-                {...props}
-                sx={{
-                  bgcolor: alpha(theme.palette.background.paper, 0.96),
-                  backdropFilter: 'blur(16px)',
-                  border: `1px solid ${alpha(theme.palette.common.white, 0.15)}`,
-                  borderRadius: '12px',
-                  color: 'common.white',
-                  mt: 0.5,
-                  boxShadow: `0 8px 32px ${alpha(theme.palette.common.black, 0.5)}`,
-                }}
-              />
-            )}
-            sx={{
-              flex: 1,
-              minWidth: { xs: '100%', sm: 260 },
-              ...focusRing(theme),
-            }}
-          />
+            </Grid>
 
-          {/* Quick chip for nearest venue when detected */}
-          {geoStatus === 'found' && nearestVenueName && (
-            <Chip
-              data-testid="nearby-venue-chip"
-              icon={
-                <FhIcon
-                  name="location"
-                  inline
+            {/* 2. League / Competition Filter */}
+            <Grid item xs={12} sm={4}>
+              <Autocomplete<string, false, boolean, false>
+                id="league-filter-autocomplete"
+                data-testid="league-filter-autocomplete"
+                size="small"
+                options={['Všechny soutěže', ...availableLeagues]}
+                value={selectedLeague === 'all' ? 'Všechny soutěže' : selectedLeague}
+                onChange={(_, newVal) => {
+                  setSelectedLeague(!newVal || newVal === 'Všechny soutěže' ? 'all' : newVal);
+                }}
+                disableClearable={selectedLeague === 'all'}
+                renderInput={(params) => (
+                  <TextField
+                    {...params}
+                    placeholder="Filtrovat podle soutěže…"
+                    variant="outlined"
+                    size="small"
+                    inputProps={{
+                      ...params.inputProps,
+                      'aria-label': 'Filtrovat podle soutěže',
+                    }}
+                    InputProps={{
+                      ...params.InputProps,
+                      startAdornment: (
+                        <>
+                          <Box component="span" sx={{ display: 'inline-flex', mr: 0.75, color: 'primary.main', alignItems: 'center' }}>
+                            <FhIcon name="shootout" inline />
+                          </Box>
+                          {params.InputProps.startAdornment}
+                        </>
+                      ),
+                    }}
+                    sx={{
+                      '& .MuiOutlinedInput-root': {
+                        bgcolor: alpha(theme.palette.common.white, 0.05),
+                        borderRadius: '12px',
+                        color: 'common.white',
+                        fontSize: '0.85rem',
+                        '& fieldset': {
+                          borderColor: selectedLeague !== 'all' ? 'primary.main' : alpha(theme.palette.common.white, 0.15),
+                        },
+                        '&:hover fieldset': {
+                          borderColor: alpha(theme.palette.primary.main, 0.5),
+                        },
+                        '&.Mui-focused fieldset': {
+                          borderColor: 'primary.main',
+                        },
+                      },
+                    }}
+                  />
+                )}
+                renderOption={(props, option) => (
+                  <li {...props} key={option}>
+                    <Typography sx={{ fontSize: '0.85rem', fontWeight: option === (selectedLeague === 'all' ? 'Všechny soutěže' : selectedLeague) ? 800 : 500 }}>
+                      {option}
+                    </Typography>
+                  </li>
+                )}
+                PaperComponent={(props) => (
+                  <Paper
+                    {...props}
+                    sx={{
+                      bgcolor: alpha(theme.palette.background.paper, 0.96),
+                      backdropFilter: 'blur(16px)',
+                      border: `1px solid ${alpha(theme.palette.common.white, 0.15)}`,
+                      borderRadius: '12px',
+                      color: 'common.white',
+                      mt: 0.5,
+                      boxShadow: `0 8px 32px ${alpha(theme.palette.common.black, 0.5)}`,
+                    }}
+                  />
+                )}
+                sx={{ ...focusRing(theme) }}
+              />
+            </Grid>
+
+            {/* 3. Team Filter */}
+            <Grid item xs={12} sm={4}>
+              <Autocomplete<string, false, boolean, false>
+                id="team-filter-autocomplete"
+                data-testid="team-filter-autocomplete"
+                size="small"
+                options={['Všechny týmy', ...availableTeams]}
+                value={selectedTeam === 'all' ? 'Všechny týmy' : selectedTeam}
+                onChange={(_, newVal) => {
+                  setSelectedTeam(!newVal || newVal === 'Všechny týmy' ? 'all' : newVal);
+                }}
+                disableClearable={selectedTeam === 'all'}
+                renderInput={(params) => (
+                  <TextField
+                    {...params}
+                    placeholder="Tým / Klub…"
+                    variant="outlined"
+                    size="small"
+                    inputProps={{
+                      ...params.inputProps,
+                      'aria-label': 'Filtrovat podle týmu',
+                    }}
+                    InputProps={{
+                      ...params.InputProps,
+                      startAdornment: (
+                        <>
+                          <Box component="span" sx={{ display: 'inline-flex', mr: 0.75, color: 'primary.main', alignItems: 'center' }}>
+                            <FhIcon name="hockey" inline />
+                          </Box>
+                          {params.InputProps.startAdornment}
+                        </>
+                      ),
+                    }}
+                    sx={{
+                      '& .MuiOutlinedInput-root': {
+                        bgcolor: alpha(theme.palette.common.white, 0.05),
+                        borderRadius: '12px',
+                        color: 'common.white',
+                        fontSize: '0.85rem',
+                        '& fieldset': {
+                          borderColor: selectedTeam !== 'all' ? 'primary.main' : alpha(theme.palette.common.white, 0.15),
+                        },
+                        '&:hover fieldset': {
+                          borderColor: alpha(theme.palette.primary.main, 0.5),
+                        },
+                        '&.Mui-focused fieldset': {
+                          borderColor: 'primary.main',
+                        },
+                      },
+                    }}
+                  />
+                )}
+                renderOption={(props, option) => (
+                  <li {...props} key={option}>
+                    <Typography sx={{ fontSize: '0.85rem', fontWeight: option === (selectedTeam === 'all' ? 'Všechny týmy' : selectedTeam) ? 800 : 500 }}>
+                      {option}
+                    </Typography>
+                  </li>
+                )}
+                PaperComponent={(props) => (
+                  <Paper
+                    {...props}
+                    sx={{
+                      bgcolor: alpha(theme.palette.background.paper, 0.96),
+                      backdropFilter: 'blur(16px)',
+                      border: `1px solid ${alpha(theme.palette.common.white, 0.15)}`,
+                      borderRadius: '12px',
+                      color: 'common.white',
+                      mt: 0.5,
+                      boxShadow: `0 8px 32px ${alpha(theme.palette.common.black, 0.5)}`,
+                    }}
+                  />
+                )}
+                sx={{ ...focusRing(theme) }}
+              />
+            </Grid>
+          </Grid>
+
+          {/* Quick chip for nearest venue & Reset filters button */}
+          {(geoStatus === 'found' && nearestVenueName || (selectedVenue !== 'all' || selectedLeague !== 'all' || selectedTeam !== 'all')) && (
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap', mt: 1.5 }}>
+              {geoStatus === 'found' && nearestVenueName && (
+                <Chip
+                  data-testid="nearby-venue-chip"
+                  icon={
+                    <FhIcon
+                      name="location"
+                      inline
+                      sx={{
+                        fontSize: '0.95rem !important',
+                        color: selectedVenue === nearestVenueName ? 'common.black !important' : 'primary.main !important',
+                      }}
+                    />
+                  }
+                  label={`Poblíž: ${nearestVenueName}`}
+                  size="small"
+                  onClick={() => setSelectedVenue(selectedVenue === nearestVenueName ? 'all' : nearestVenueName)}
                   sx={{
-                    fontSize: '0.95rem !important',
-                    color: selectedVenue === nearestVenueName ? 'common.black !important' : 'primary.main !important',
+                    fontWeight: 800,
+                    fontSize: '0.75rem',
+                    height: 32,
+                    borderRadius: '8px',
+                    bgcolor: selectedVenue === nearestVenueName ? 'primary.main' : alpha(theme.palette.primary.main, 0.15),
+                    color: selectedVenue === nearestVenueName ? 'common.black' : 'primary.light',
+                    border: `1px solid ${selectedVenue === nearestVenueName ? 'primary.main' : alpha(theme.palette.primary.main, 0.4)}`,
+                    cursor: 'pointer',
+                    ...focusRing(theme),
                   }}
                 />
-              }
-              label={`Poblíž: ${nearestVenueName}`}
-              size="small"
-              onClick={() => setSelectedVenue(selectedVenue === nearestVenueName ? 'all' : nearestVenueName)}
-              sx={{
-                fontWeight: 800,
-                fontSize: '0.75rem',
-                height: 38,
-                borderRadius: '10px',
-                bgcolor: selectedVenue === nearestVenueName ? 'primary.main' : alpha(theme.palette.primary.main, 0.15),
-                color: selectedVenue === nearestVenueName ? 'common.black' : 'primary.light',
-                border: `1px solid ${selectedVenue === nearestVenueName ? 'primary.main' : alpha(theme.palette.primary.main, 0.4)}`,
-                cursor: 'pointer',
-                flexShrink: 0,
-                ...focusRing(theme),
-              }}
-            />
+              )}
+
+              {(selectedVenue !== 'all' || selectedLeague !== 'all' || selectedTeam !== 'all') && (
+                <Chip
+                  label="Zrušit filtry"
+                  size="small"
+                  onDelete={() => {
+                    setSelectedVenue('all');
+                    setSelectedLeague('all');
+                    setSelectedTeam('all');
+                  }}
+                  onClick={() => {
+                    setSelectedVenue('all');
+                    setSelectedLeague('all');
+                    setSelectedTeam('all');
+                  }}
+                  sx={{
+                    fontWeight: 800,
+                    fontSize: '0.75rem',
+                    height: 32,
+                    borderRadius: '8px',
+                    bgcolor: alpha(theme.palette.error.main, 0.15),
+                    color: theme.palette.error.light,
+                    border: `1px solid ${alpha(theme.palette.error.main, 0.35)}`,
+                    cursor: 'pointer',
+                    '& .MuiChip-deleteIcon': {
+                      color: theme.palette.error.light,
+                      '&:hover': { color: 'common.white' },
+                    },
+                    ...focusRing(theme),
+                  }}
+                />
+              )}
+            </Box>
           )}
         </Box>
 
@@ -515,7 +750,11 @@ export default function MatchesPage(): JSX.Element {
             <EmptyState
               icon={<FhIcon name="hockey" sx={{ fontSize: 44 }} />}
               title="Žádné zápasy"
-              description={selectedVenue !== 'all' ? 'Na vybraném hřišti se nekonají žádné zápasy.' : 'Zatím nejsou naplánovány žádné zápasy.'}
+              description={
+                selectedVenue !== 'all' || selectedLeague !== 'all' || selectedTeam !== 'all'
+                  ? 'Pro zvolenou kombinaci filtrů se nekonají žádné zápasy.'
+                  : 'Zatím nejsou naplánovány žádné zápasy.'
+              }
             />
           }
         >
