@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   Box,
   Container,
@@ -17,6 +18,7 @@ import { supabase } from '../lib/supabase';
 /**
  * CHANGE-055 Spec-AC-02: root `/` tenant picker.
  * Overhauled with premium fancy GUI.
+ * When only a single active tenant exists, automatically redirects to its matches view.
  */
 interface PickerRow {
   id: string;
@@ -24,9 +26,18 @@ interface PickerRow {
   name: string;
 }
 
+function useSafeNavigate() {
+  try {
+    return useNavigate();
+  } catch {
+    return null;
+  }
+}
+
 export default function TenantPickerPage(): JSX.Element {
   const { t } = useTranslation();
   const theme = useTheme();
+  const navigate = useSafeNavigate();
   const [rows, setRows] = useState<PickerRow[] | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -46,12 +57,20 @@ export default function TenantPickerPage(): JSX.Element {
       const list = ((data ?? []) as PickerRow[])
         .slice()
         .sort((a, b) => a.name.localeCompare(b.name));
+      if (list.length === 1) {
+        if (navigate) {
+          navigate(`/${list[0].slug}/matches`, { replace: true });
+        } else if (typeof window !== 'undefined') {
+          window.location.replace(`/${list[0].slug}/matches`);
+        }
+        return;
+      }
       setRows(list);
     })();
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [navigate]);
 
   return (
     <Box

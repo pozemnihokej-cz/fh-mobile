@@ -55,6 +55,7 @@ export function MatchDetailView({
   };
 
   const match = useQuery(api.functions.matches.getBySupabaseId, { supabaseId: matchId });
+  const canonicalMatchId = match?.supabaseId ?? matchId;
   const matchConfig = useMemo(() => {
     if (!match) return undefined;
     const cfg = (match as any).config;
@@ -67,21 +68,21 @@ export function MatchDetailView({
 
   // Fan app is a read-only surface — use the display-only clock so we can't
   // accidentally fire operator mutations (start/pause/phase).
-  const { time: elapsed, phase, totalElapsed, running: isRunning, colonVisible, loaded: clockLoaded } = useLiveMatchClock(matchId, matchConfig);
-  const { events, derivedState, loaded: timelineLoaded } = useTimeline(matchId, totalElapsed);
+  const { time: elapsed, phase, totalElapsed, running: isRunning, colonVisible, loaded: clockLoaded } = useLiveMatchClock(canonicalMatchId, matchConfig);
+  const { events, derivedState, loaded: timelineLoaded } = useTimeline(canonicalMatchId, totalElapsed);
 
   // Convex live query for match roster (OM parity — holds complete rosters)
   const rosterQuery = (api as any)?.functions?.roster?.list;
   const convexRoster = useQuery(
     rosterQuery ?? ('skip' as any),
-    matchId && rosterQuery ? { matchId } : 'skip',
+    canonicalMatchId && rosterQuery ? { matchId: canonicalMatchId } : 'skip',
   );
 
   // Lineup fetch for the integrated in-tunnel roster tab — fallback to Supabase / Convex HTTP
   const { data: lineupData } = useAsyncData(
-    () => fetchLineup(supabase, matchId),
-    [matchId],
-    Boolean(matchId),
+    () => fetchLineup(supabase, canonicalMatchId),
+    [canonicalMatchId],
+    Boolean(canonicalMatchId),
   );
   const lineup = useMemo(() => {
     if (Array.isArray(convexRoster) && convexRoster.length > 0) {

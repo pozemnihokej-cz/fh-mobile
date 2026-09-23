@@ -1,5 +1,5 @@
-import { useMemo } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useMemo, useEffect } from 'react';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useQuery } from 'convex/react';
 import { isMatchGenuinelyLive } from '@fh/schema';
 import { api } from '@convex/_generated/api';
@@ -18,9 +18,17 @@ import { useFanPreferences } from '../lib/useFanPreferences';
 export default function LiveCenter(): JSX.Element {
   const { tenantId, tenantName } = useTenantContext();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const theme = useTheme();
   const matches = useQuery(api.functions.matches.list, tenantId ? { tenantId } : 'skip');
   const { isMatchSaved, toggleMatch } = useFanPreferences();
+
+  const directId = searchParams.get('matchId') || searchParams.get('id') || searchParams.get('externalId');
+  useEffect(() => {
+    if (directId) {
+      navigate(`../matches/${directId}`, { relative: 'path', replace: true });
+    }
+  }, [directId, navigate]);
 
   const live = useMemo<MatchCardData[]>(() => {
     if (!matches) return [];

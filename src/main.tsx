@@ -16,6 +16,7 @@ import TenantPickerPage from './routes/TenantPickerPage';
 import TenantLayout from './routes/TenantLayout';
 import MatchesPage from './routes/MatchesPage';
 import MatchDetailPage from './routes/MatchDetailPage';
+import DirectMatchRedirect from './routes/DirectMatchRedirect';
 import LiveCenter from './routes/LiveCenter';
 import StandingsPage from './routes/StandingsPage';
 import SchedulePage from './routes/SchedulePage';
@@ -112,6 +113,12 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
               <Routes>
                 <Route element={<App />}>
                   <Route index element={<TenantPickerPage />} />
+                  {/* Direct external links (e.g. from SportsPress on pozemnihokej.cz) without slug */}
+                  <Route path="matches/:matchId" element={<DirectMatchRedirect />} />
+                  <Route path="match/:matchId" element={<DirectMatchRedirect />} />
+                  <Route path="live/:matchId" element={<DirectMatchRedirect />} />
+                  <Route path="live" element={<DirectMatchRedirect />} />
+
                   <Route path=":slug" element={<TenantLayout />}>
                     <Route index element={<Navigate to="matches" replace />} />
                     <Route
@@ -124,6 +131,22 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
                     />
                     <Route
                       path="matches/:matchId"
+                      element={
+                        <QueryErrorBoundary errorTitle="Zápas se nepodařilo načíst" errorDescription="Zkontroluj připojení a zkus to znovu." retryLabel="Zkusit znovu">
+                          <MatchDetailPage />
+                        </QueryErrorBoundary>
+                      }
+                    />
+                    <Route
+                      path="match/:matchId"
+                      element={
+                        <QueryErrorBoundary errorTitle="Zápas se nepodařilo načíst" errorDescription="Zkontroluj připojení a zkus to znovu." retryLabel="Zkusit znovu">
+                          <MatchDetailPage />
+                        </QueryErrorBoundary>
+                      }
+                    />
+                    <Route
+                      path="live/:matchId"
                       element={
                         <QueryErrorBoundary errorTitle="Zápas se nepodařilo načíst" errorDescription="Zkontroluj připojení a zkus to znovu." retryLabel="Zkusit znovu">
                           <MatchDetailPage />

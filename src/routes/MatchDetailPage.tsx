@@ -1,7 +1,8 @@
+import { useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { useQuery } from 'convex/react';
 import { api } from '@convex/_generated/api';
-import { Box, Container, IconButton, Typography, alpha, useTheme } from '@mui/material';
+import { Box, Container, IconButton, Typography, Tooltip, Snackbar, Alert, alpha, useTheme } from '@mui/material';
 import { StickyGlassHeader, FhIcon, focusRing } from '@fh/ui';
 import { isMatchGenuinelyLive } from '@fh/schema';
 import { MatchDetailView } from '../components/MatchDetailView';
@@ -18,8 +19,23 @@ export default function MatchDetailPage(): JSX.Element {
   const { matchId } = useParams<{ matchId: string }>();
   const theme = useTheme();
   const { isMatchSaved, toggleMatch } = useFanPreferences();
+  const [copied, setCopied] = useState(false);
 
   const match = useQuery(api.functions.matches.getBySupabaseId, matchId ? { supabaseId: matchId } : 'skip');
+  const canonicalMatchId = match?.supabaseId ?? matchId ?? '';
+
+  const handleShare = async () => {
+    try {
+      const shareId = match?.externalId || canonicalMatchId;
+      const shareUrl = `${window.location.origin}/live/${shareId}`;
+      if (navigator.clipboard) {
+        await navigator.clipboard.writeText(shareUrl);
+        setCopied(true);
+      }
+    } catch {
+      // ignore
+    }
+  };
 
   if (!matchId) {
     return (
@@ -82,6 +98,7 @@ export default function MatchDetailPage(): JSX.Element {
   const headerSubtitle = match
     ? [
         match.leagueName || 'LIGA',
+        match.externalId ? `#${match.externalId}` : null,
         isLive ? 'ŽIVĚ' : match.status === 'completed' ? 'KONEC ZÁPASU' : null,
       ]
         .filter(Boolean)
@@ -113,17 +130,46 @@ export default function MatchDetailPage(): JSX.Element {
             <FhIcon name="back" />
           </IconButton>
         }
+        action={
+          <Tooltip title={copied ? 'Odkaz zkopírován' : 'Kopírovat odkaz na zápas'}>
+            <IconButton
+              data-testid="match-detail-share"
+              aria-label="Kopírovat odkaz na zápas"
+              onClick={handleShare}
+              sx={{
+                color: copied ? 'success.main' : 'common.white',
+                width: 44,
+                height: 44,
+                bgcolor: alpha(theme.palette.common.white, 0.05),
+                '&:hover': { bgcolor: alpha(theme.palette.common.white, 0.1) },
+                ...focusRing(theme),
+              }}
+            >
+              {copied ? <FhIcon name="confirm" inline /> : <FhIcon name="share" inline />}
+            </IconButton>
+          </Tooltip>
+        }
       />
       <Container maxWidth="md" sx={{ py: 3 }}>
         <MatchDetailView
-          matchId={matchId}
-          starred={isMatchSaved(matchId)}
+          matchId={canonicalMatchId}
+          starred={isMatchSaved(canonicalMatchId)}
           onToggleStar={(e) => {
             e.stopPropagation();
-            toggleMatch(matchId);
+            toggleMatch(canonicalMatchId);
           }}
         />
       </Container>
+      <Snackbar
+        open={copied}
+        autoHideDuration={2000}
+        onClose={() => setCopied(false)}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      >
+        <Alert severity="success" variant="filled" sx={{ width: '100%', fontWeight: 700 }}>
+          Odkaz na zápas byl zkopírován do schránky!
+        </Alert>
+      </Snackbar>
     </Box>
   );
 }

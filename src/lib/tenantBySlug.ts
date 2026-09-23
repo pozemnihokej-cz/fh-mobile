@@ -24,10 +24,12 @@ export interface ResolvedTenant {
 }
 
 const cache = new Map<string, ResolvedTenant>();
+const cacheById = new Map<string, ResolvedTenant>();
 
 /** Test-only: clear the in-memory cache. Production code does not call this. */
 export function __resetTenantBySlugCache(): void {
   cache.clear();
+  cacheById.clear();
 }
 
 export async function resolveTenantBySlug(
@@ -53,5 +55,34 @@ export async function resolveTenantBySlug(
     name: String((data as { name: unknown }).name),
   };
   cache.set(slug, resolved);
+  cacheById.set(resolved.id, resolved);
   return resolved;
 }
+
+export async function resolveTenantById(
+  supabase: Pick<SupabaseClient, 'from'>,
+  id: string,
+): Promise<ResolvedTenant | null> {
+  if (!id) return null;
+  const cached = cacheById.get(id);
+  if (cached) return cached;
+
+  const { data, error } = await supabase
+    .from('tenants')
+    .select('id,slug,name')
+    .eq('id', id)
+    .eq('is_active', true)
+    .maybeSingle();
+
+  if (error || !data) return null;
+
+  const resolved: ResolvedTenant = {
+    id: String((data as { id: unknown }).id),
+    slug: String((data as { slug: unknown }).slug),
+    name: String((data as { name: unknown }).name),
+  };
+  cache.set(resolved.slug, resolved);
+  cacheById.set(id, resolved);
+  return resolved;
+}
+

@@ -16,13 +16,18 @@ vi.mock('../../lib/tenantBySlug', () => ({
     slug,
     name: 'E2E Test',
   })),
+  resolveTenantById: vi.fn(async (_supabase: unknown, id: string) => ({
+    id,
+    slug: 'cz-field-hockey-union',
+    name: 'Český svaz pozemního hokeje',
+  })),
   __resetTenantBySlugCache: () => undefined,
 }));
 
 // Anon supabase client is not exercised by the resolver mock; stub the module
 // so importing it does not require env vars in the test runner.
 vi.mock('../../lib/supabase', () => ({
-  supabase: { from: () => ({ select: () => ({ eq: () => ({}) }) }) },
+  supabase: { from: () => ({ select: () => ({ eq: () => ({ maybeSingle: () => ({}) }) }) }) },
 }));
 
 // Auth provider: anon (no user) so the URL-override hook is a no-op.
@@ -30,11 +35,18 @@ vi.mock('@fh/auth', () => ({
   useAuth: () => ({ user: null, switchTenant: vi.fn() }),
 }));
 
-// Convex hooks are not the subject of this test; stub `useQuery` to return
-// loading and `useMutation`/`useAction` to inert fns so the match-detail
-// subtree (useTimeline → useMutation) renders without a real Convex client.
+const mockMatch = vi.hoisted(() => ({ current: null as any }));
+
+// Convex hooks are not the subject of this test; return mockMatch when
+// querying a match and an empty array for events / rosters.
 vi.mock('convex/react', () => ({
-  useQuery: vi.fn(() => undefined),
+  useQuery: vi.fn((_query: any, args: any) => {
+    if (args && typeof args === 'object') {
+      if ('supabaseId' in args) return mockMatch.current;
+      if ('matchId' in args) return [];
+    }
+    return undefined;
+  }),
   useMutation: vi.fn(() => vi.fn()),
   useAction: vi.fn(() => vi.fn()),
 }));
@@ -42,9 +54,11 @@ vi.mock('convex/react', () => ({
 import TenantLayout from '../TenantLayout';
 import MatchesPage from '../MatchesPage';
 import MatchDetailPage from '../MatchDetailPage';
+import DirectMatchRedirect from '../DirectMatchRedirect';
 import NotFoundPage from '../NotFoundPage';
 
 beforeEach(() => {
+  mockMatch.current = undefined;
   // Reset the per-module cache so this test's slug resolution isn't masked
   // by an earlier test's cache entry.
   return import('../../lib/tenantBySlug').then((m) =>
@@ -60,9 +74,15 @@ function LocationProbe(): JSX.Element {
 function appTree() {
   return (
     <Routes>
+      <Route path="matches/:matchId" element={<DirectMatchRedirect />} />
+      <Route path="match/:matchId" element={<DirectMatchRedirect />} />
+      <Route path="live/:matchId" element={<DirectMatchRedirect />} />
+      <Route path="live" element={<DirectMatchRedirect />} />
       <Route path=":slug" element={<TenantLayout />}>
         <Route path="matches" element={<MatchesPage />} />
         <Route path="matches/:matchId" element={<MatchDetailPage />} />
+        <Route path="match/:matchId" element={<MatchDetailPage />} />
+        <Route path="live/:matchId" element={<MatchDetailPage />} />
         <Route path="*" element={<NotFoundPage />} />
       </Route>
     </Routes>
@@ -103,4 +123,88 @@ describe('routing (TEST-003)', () => {
     expect(back).toHaveAttribute('href', '/e2e-test/matches');
     expect(back.getAttribute('href')).not.toBe('/');
   });
+
+  it('mounts MatchDetailPage at /e2e-test/live/79147 via live/:matchId alias', async () => {
+    render(
+      <MemoryRouter initialEntries={['/e2e-test/live/79147']}>
+        {appTree()}
+        <LocationProbe />
+      </MemoryRouter>,
+    );
+
+    const back = await waitFor(() => screen.getByTestId('match-detail-back'));
+    expect(back).toBeInTheDocument();
+    expect(screen.getByTestId('probe-path')).toHaveTextContent('/e2e-test/live/79147');
+    expect(screen.getByTestId('match-detail-share')).toBeInTheDocument();
+  });
+
+  it('redirects slug-less /matches/79147 to /cz-field-hockey-union/matches/uuid-79147', async () => {
+    mockMatch.current = {
+      supabaseId: 'uuid-79147',
+      externalId: '79147',
+      homeTeamName: 'Slavia',
+      awayTeamName: 'Bohemians',
+      date: Date.now(),
+      status: 'scheduled',
+      tenantId: 'TID-UNION',
+    };
+
+    render(
+      <MemoryRouter initialEntries={['/matches/79147']}>
+        {appTree()}
+        <LocationProbe />
+      </MemoryRouter>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId('probe-path')).toHaveTextContent('/cz-field-hockey-union/matches/uuid-79147');
+    });
+  });
+
+  it('redirects slug-less /live/79147 to /cz-field-hockey-union/matches/uuid-79147', async () => {
+    mockMatch.current = {
+      supabaseId: 'uuid-79147',
+      externalId: '79147',
+      homeTeamName: 'Slavia',
+      awayTeamName: 'Bohemians',
+      date: Date.now(),
+      status: 'scheduled',
+      tenantId: 'TID-UNION',
+    };
+
+    render(
+      <MemoryRouter initialEntries={['/live/79147']}>
+        {appTree()}
+        <LocationProbe />
+      </MemoryRouter>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId('probe-path')).toHaveTextContent('/cz-field-hockey-union/matches/uuid-79147');
+    });
+  });
+
+  it('displays externalId #79147 in header subtitle when match is loaded', async () => {
+    mockMatch.current = {
+      supabaseId: 'uuid-79147',
+      externalId: '79147',
+      homeTeamName: 'Slavia',
+      awayTeamName: 'Bohemians',
+      leagueName: 'Extraliga',
+      date: Date.now(),
+      status: 'in_progress',
+      tenantId: 'TID-E2E',
+    };
+
+    render(
+      <MemoryRouter initialEntries={['/e2e-test/matches/79147']}>
+        {appTree()}
+      </MemoryRouter>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText(/#79147/)).toBeInTheDocument();
+    });
+  });
 });
+
