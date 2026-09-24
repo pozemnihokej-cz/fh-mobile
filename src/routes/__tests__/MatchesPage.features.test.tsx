@@ -11,6 +11,12 @@ const queryData = vi.hoisted(() => ({
   venues: [] as any,
 }));
 
+const geoMockData = vi.hoisted(() => ({
+  nearestVenueName: 'Hřiště Eden' as string | null,
+  nearbyVenues: [{ name: 'Hřiště Eden', km: 0.1, isHall: false }] as any[],
+  status: 'found' as string,
+}));
+
 let callIdx = 0;
 vi.mock('convex/react', () => ({
   useQuery: vi.fn(() => {
@@ -33,8 +39,9 @@ vi.mock('../../lib/useFanPreferences', () => ({
 
 vi.mock('../../hooks/useNearestVenue', () => ({
   useNearestVenue: () => ({
-    nearestVenueName: 'Hřiště Eden',
-    status: 'found',
+    nearestVenueName: geoMockData.nearestVenueName,
+    nearbyVenues: geoMockData.nearbyVenues,
+    status: geoMockData.status,
   }),
 }));
 
@@ -42,6 +49,9 @@ afterEach(cleanup);
 beforeEach(() => {
   callIdx = 0;
   sessionStorage.clear();
+  geoMockData.nearestVenueName = 'Hřiště Eden';
+  geoMockData.nearbyVenues = [{ name: 'Hřiště Eden', km: 0.1, isHall: false }];
+  geoMockData.status = 'found';
 });
 
 const now = Date.now();
@@ -411,6 +421,58 @@ describe('MatchesPage timeline and features', () => {
     const saved = JSON.parse(sessionStorage.getItem('fh.matches.tenant-1.state') || '{}');
     expect(saved.lastMatchId).toBe('s-past');
     expect(saved.daysBack).toBe(7);
+  });
+
+  it('TEST-008: renders multiple nearby chips when both pitch and hall are nearby', () => {
+    geoMockData.nearestVenueName = 'Hřiště Kbely';
+    geoMockData.nearbyVenues = [
+      { name: 'Hřiště Kbely', km: 0.05, isHall: false },
+      { name: 'Hala Kbely', km: 0.08, isHall: true },
+    ];
+    geoMockData.status = 'found';
+
+    const matchKbelyPitch = {
+      _id: 'm-kbely-pitch',
+      supabaseId: 's-kbely-pitch',
+      homeTeamName: 'Kbely Venku',
+      awayTeamName: 'Hosté Venku',
+      date: now + 3600_000,
+      status: 'scheduled',
+      venue: 'Hřiště Kbely',
+    };
+    const matchKbelyHall = {
+      _id: 'm-kbely-hall',
+      supabaseId: 's-kbely-hall',
+      homeTeamName: 'Kbely Hala',
+      awayTeamName: 'Hosté Hala',
+      date: now + 7200_000,
+      status: 'scheduled',
+      venue: 'Hala Kbely',
+    };
+
+    queryData.matches = [matchKbelyPitch, matchKbelyHall];
+    queryData.venues = [
+      { name: 'Hřiště Kbely', gps: '50.13, 14.54' },
+      { name: 'Hala Kbely', gps: '50.13, 14.54' },
+    ];
+
+    render(
+      <BrowserRouter>
+        <ThemeProvider theme={fhThemeDark}>
+          <MatchesPage />
+        </ThemeProvider>
+      </BrowserRouter>,
+    );
+
+    const chips = screen.getAllByTestId('nearby-venue-chip');
+    expect(chips).toHaveLength(2);
+    expect(screen.getByText('Poblíž: Hřiště Kbely')).toBeDefined();
+    expect(screen.getByText('Poblíž: Hala Kbely')).toBeDefined();
+
+    // Clicking Hala Kbely chip filters to matches at Hala Kbely
+    fireEvent.click(chips[1]);
+    expect(screen.getByText('Kbely Hala')).toBeDefined();
+    expect(screen.queryByText('Kbely Venku')).toBeNull();
   });
 });
 

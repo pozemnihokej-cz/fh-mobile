@@ -80,10 +80,16 @@ export default function MatchesPage(): JSX.Element {
   // Geolocation detection of nearest pitch
   const visibleVenues = useMemo(() => {
     if (!venues) return [];
-    return venues.map((v) => ({ name: v.name, gps: v.gps }));
+    return venues.map((v) => ({
+      name: v.name,
+      gps: v.gps,
+      surfaceType: (v as any).surfaceType,
+    }));
   }, [venues]);
 
-  const { nearestVenueName, status: geoStatus } = useNearestVenue(visibleVenues);
+  const { nearestVenueName, nearbyVenues, status: geoStatus } = useNearestVenue(visibleVenues, {
+    matches: matches as any,
+  });
 
   // Session storage state persistence — remembers revealed days & scroll position
   // so opening a match detail and navigating Back keeps the user in place.
@@ -220,19 +226,22 @@ export default function MatchesPage(): JSX.Element {
   // Options for Venue Autocomplete
   const venueOptions = useMemo<VenueOption[]>(() => {
     const opts: VenueOption[] = [{ id: 'all', label: 'Všechna hřiště' }];
-    if (geoStatus === 'found' && nearestVenueName) {
-      opts.push({
-        id: nearestVenueName,
-        label: `${nearestVenueName} (poblíž)`,
-        isNearby: true,
-      });
+    const nearbyNames = new Set((nearbyVenues ?? []).map((v) => v.name));
+    if (geoStatus === 'found') {
+      for (const nv of nearbyVenues ?? []) {
+        opts.push({
+          id: nv.name,
+          label: `${nv.name} (poblíž)`,
+          isNearby: true,
+        });
+      }
     }
     for (const v of availableVenues) {
-      if (v === nearestVenueName) continue;
+      if (nearbyNames.has(v)) continue;
       opts.push({ id: v, label: v });
     }
     return opts;
-  }, [availableVenues, nearestVenueName, geoStatus]);
+  }, [availableVenues, nearbyVenues, geoStatus]);
 
   // Filter matches by selected venue, league, and team independently
   const filteredMatches = useMemo(() => {
@@ -656,10 +665,11 @@ export default function MatchesPage(): JSX.Element {
           </Grid>
 
           {/* Quick chip for nearest venue & Reset filters button */}
-          {(geoStatus === 'found' && nearestVenueName || (selectedVenue !== 'all' || selectedLeague !== 'all' || selectedTeam !== 'all')) && (
+          {((geoStatus === 'found' && (nearbyVenues?.length ?? 0) > 0) || (selectedVenue !== 'all' || selectedLeague !== 'all' || selectedTeam !== 'all')) && (
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap', mt: 1.5 }}>
-              {geoStatus === 'found' && nearestVenueName && (
+              {geoStatus === 'found' && (nearbyVenues ?? []).map((nv) => (
                 <Chip
+                  key={nv.name}
                   data-testid="nearby-venue-chip"
                   icon={
                     <FhIcon
@@ -667,26 +677,26 @@ export default function MatchesPage(): JSX.Element {
                       inline
                       sx={{
                         fontSize: '0.95rem !important',
-                        color: selectedVenue === nearestVenueName ? 'common.black !important' : 'primary.main !important',
+                        color: selectedVenue === nv.name ? 'common.black !important' : 'primary.main !important',
                       }}
                     />
                   }
-                  label={`Poblíž: ${nearestVenueName}`}
+                  label={`Poblíž: ${nv.name}`}
                   size="small"
-                  onClick={() => setSelectedVenue(selectedVenue === nearestVenueName ? 'all' : nearestVenueName)}
+                  onClick={() => setSelectedVenue(selectedVenue === nv.name ? 'all' : nv.name)}
                   sx={{
                     fontWeight: 800,
                     fontSize: '0.75rem',
                     height: 32,
                     borderRadius: '8px',
-                    bgcolor: selectedVenue === nearestVenueName ? 'primary.main' : alpha(theme.palette.primary.main, 0.15),
-                    color: selectedVenue === nearestVenueName ? 'common.black' : 'primary.light',
-                    border: `1px solid ${selectedVenue === nearestVenueName ? 'primary.main' : alpha(theme.palette.primary.main, 0.4)}`,
+                    bgcolor: selectedVenue === nv.name ? 'primary.main' : alpha(theme.palette.primary.main, 0.15),
+                    color: selectedVenue === nv.name ? 'common.black' : 'primary.light',
+                    border: `1px solid ${selectedVenue === nv.name ? 'primary.main' : alpha(theme.palette.primary.main, 0.4)}`,
                     cursor: 'pointer',
                     ...focusRing(theme),
                   }}
                 />
-              )}
+              ))}
 
               {(selectedVenue !== 'all' || selectedLeague !== 'all' || selectedTeam !== 'all') && (
                 <Chip
