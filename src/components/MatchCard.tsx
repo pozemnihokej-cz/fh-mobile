@@ -87,13 +87,13 @@ export function MatchCard({
   return (
     <UIMatchCard
       home={{
-        name: match.homeClubName ?? match.homeTeamName,
+        name: match.homeTeamName || match.homeClubName || 'Domácí',
         // CHANGE-194 Bug 1 — resolve stored /storage/v1/assets/… paths to a
         // proxied public-object URL so real crests render (was raw → 404).
         logo: toImageUrl(match.homeClubLogo ?? match.homeTeamLogo),
       }}
       away={{
-        name: match.awayClubName ?? match.awayTeamName,
+        name: match.awayTeamName || match.awayClubName || 'Hosté',
         logo: toImageUrl(match.awayClubLogo ?? match.awayTeamLogo),
       }}
       league={match.leagueName}

@@ -299,8 +299,8 @@ export function MatchDetailView({
           compact
           live={isLive}
           league={match.leagueName}
-          home={{ name: match.homeClubName ?? match.homeTeamName, logo: toImageUrl(match.homeClubLogo ?? match.homeTeamLogo) }}
-          away={{ name: match.awayClubName ?? match.awayTeamName, logo: toImageUrl(match.awayClubLogo ?? match.awayTeamLogo) }}
+          home={{ name: match.homeTeamName || match.homeClubName || 'Domácí', logo: toImageUrl(match.homeClubLogo ?? match.homeTeamLogo) }}
+          away={{ name: match.awayTeamName || match.awayClubName || 'Hosté', logo: toImageUrl(match.awayClubLogo ?? match.awayTeamLogo) }}
           score={
             isLive || match.status === 'completed' || (match.status === 'in_progress' && !isLive)
               ? { home: derivedState.score.home, away: derivedState.score.away }
@@ -441,8 +441,8 @@ export function MatchDetailView({
                   const sec = s.remainingSeconds % 60;
                   const timeStr = `${min}:${sec.toString().padStart(2, '0')}`;
                   const teamName = s.side === 'home'
-                    ? (match.homeClubName ?? match.homeTeamName)
-                    : (match.awayClubName ?? match.awayTeamName);
+                    ? (match.homeTeamName || match.homeClubName || 'Domácí')
+                    : (match.awayTeamName || match.awayClubName || 'Hosté');
                   return (
                     <Box key={s.id} sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -628,11 +628,12 @@ export function MatchDetailView({
                     width: 22,
                     height: 22,
                     bgcolor: 'transparent',
+                    border: 'none',
                     fontSize: '0.72rem',
                     fontWeight: 900,
                   }}
                 >
-                  {(match.homeClubName ?? match.homeTeamName)[0]}
+                  {(match.homeTeamName || match.homeClubName || 'D')[0]}
                 </Avatar>
               }
             >
@@ -661,11 +662,12 @@ export function MatchDetailView({
                     width: 22,
                     height: 22,
                     bgcolor: 'transparent',
+                    border: 'none',
                     fontSize: '0.72rem',
                     fontWeight: 900,
                   }}
                 >
-                  {(match.awayClubName ?? match.awayTeamName)[0]}
+                  {(match.awayTeamName || match.awayClubName || 'H')[0]}
                 </Avatar>
               }
             >
@@ -696,7 +698,7 @@ export function MatchDetailView({
       >
         {activeNotification ? (() => {
           const ev: any = activeNotification.event;
-          const side = ev.side === 'home' ? (match?.homeClubName ?? match?.homeTeamName) : (match?.awayClubName ?? match?.awayTeamName);
+          const side = ev.side === 'home' ? (match?.homeTeamName || match?.homeClubName) : (match?.awayTeamName || match?.awayClubName);
           const isGoal = ev.type === 'goal' || ev.type === 'shootout_goal';
           const cardColorCz: Record<string, string> = { green: 'zelená', yellow: 'žlutá', red: 'červená' };
           const label = isGoal
@@ -722,8 +724,8 @@ export function MatchDetailView({
         player={selectedPlayerModal}
         teamName={
           selectedPlayerModal?.side === 'guest'
-            ? (match.awayClubName ?? match.awayTeamName)
-            : (match.homeClubName ?? match.homeTeamName)
+            ? (match.awayTeamName || match.awayClubName)
+            : (match.homeTeamName || match.homeClubName)
         }
         teamLogo={
           selectedPlayerModal?.side === 'guest'

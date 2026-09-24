@@ -111,17 +111,25 @@ export default function ProfilePage(): JSX.Element {
         </Box>
 
         {!isAuthenticated ? (
-          <Stack spacing={2}>
-            <Box>
-              <Typography sx={{ ...typeScale.title, color: 'common.white', mb: 0.5 }}>
-                {t('mobile.fan.profile.signInTitle')}
-              </Typography>
+          import.meta.env.PROD && import.meta.env.VITE_ENABLE_UNRELEASED_PAGES !== 'true' ? (
+            <Box sx={{ ...cardSx, textAlign: 'center', py: 3 }}>
               <Typography sx={{ ...typeScale.body, color: 'text.secondary' }}>
-                {t('mobile.fan.profile.signInDesc')}
+                Přihlášení a vytváření uživatelských účtů není v této verzi k dispozici.
               </Typography>
             </Box>
-            <AuthForm />
-          </Stack>
+          ) : (
+            <Stack spacing={2}>
+              <Box>
+                <Typography sx={{ ...typeScale.title, color: 'common.white', mb: 0.5 }}>
+                  {t('mobile.fan.profile.signInTitle')}
+                </Typography>
+                <Typography sx={{ ...typeScale.body, color: 'text.secondary' }}>
+                  {t('mobile.fan.profile.signInDesc')}
+                </Typography>
+              </Box>
+              <AuthForm />
+            </Stack>
+          )
         ) : (
           <Stack spacing={2.5}>
             {/* Account */}

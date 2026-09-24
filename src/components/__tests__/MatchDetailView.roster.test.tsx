@@ -122,7 +122,7 @@ describe('MatchDetailView roster and player detail modal', () => {
 
     // Modal displays player name, jersey number, team, and Czech position
     expect(screen.getByText('#1')).toBeInTheDocument();
-    expect(screen.getByText('SK Slavia')).toBeInTheDocument();
+    expect(screen.getByText('Slavia Praha')).toBeInTheDocument();
     expect(screen.getByText('Kapitán (C)')).toBeInTheDocument();
 
     // Close modal

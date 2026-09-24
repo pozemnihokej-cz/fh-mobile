@@ -31,6 +31,10 @@ export function FanBottomNav(): JSX.Element | null {
   const location = useLocation();
 
   if (!slug) return null;
+  // In production, secondary fan screens (standings, schedule, search, profile) are hidden
+  if (import.meta.env.PROD && import.meta.env.VITE_ENABLE_UNRELEASED_PAGES !== 'true') {
+    return null;
+  }
 
   const active = ITEMS.findIndex((it) => location.pathname.startsWith(`/${slug}/${it.segment}`));
 

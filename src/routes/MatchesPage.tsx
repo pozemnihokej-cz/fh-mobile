@@ -208,8 +208,8 @@ export default function MatchesPage(): JSX.Element {
     const set = new Set<string>();
     if (matches) {
       for (const m of matches as MatchCardData[]) {
-        const home = m.homeClubName ?? m.homeTeamName;
-        const away = m.awayClubName ?? m.awayTeamName;
+        const home = m.homeTeamName || m.homeClubName;
+        const away = m.awayTeamName || m.awayClubName;
         if (home && home.trim()) set.add(home.trim());
         if (away && away.trim()) set.add(away.trim());
       }
@@ -247,13 +247,15 @@ export default function MatchesPage(): JSX.Element {
         if (m.leagueName !== selectedLeague) return false;
       }
       if (selectedTeam !== 'all') {
-        const home = m.homeClubName ?? m.homeTeamName;
-        const away = m.awayClubName ?? m.awayTeamName;
+        const home = m.homeTeamName || m.homeClubName;
+        const away = m.awayTeamName || m.awayClubName;
         if (
           home !== selectedTeam &&
           away !== selectedTeam &&
           m.homeTeamName !== selectedTeam &&
-          m.awayTeamName !== selectedTeam
+          m.awayTeamName !== selectedTeam &&
+          m.homeClubName !== selectedTeam &&
+          m.awayClubName !== selectedTeam
         ) {
           return false;
         }

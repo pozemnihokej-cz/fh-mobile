@@ -55,8 +55,8 @@ export default function MatchDetailPage(): JSX.Element {
     : false;
 
   const isPlayedOrLive = match ? isLive || match.status === 'completed' || match.status === 'in_progress' : false;
-  const homeName = match?.homeClubName ?? match?.homeTeamName ?? 'Domácí';
-  const awayName = match?.awayClubName ?? match?.awayTeamName ?? 'Hosté';
+  const homeName = match?.homeTeamName || match?.homeClubName || 'Domácí';
+  const awayName = match?.awayTeamName || match?.awayClubName || 'Hosté';
   const hasScore = match && (match.homeScore != null || match.awayScore != null);
   const scoreStr = hasScore ? `${match.homeScore ?? 0} : ${match.awayScore ?? 0}` : '0 : 0';
 

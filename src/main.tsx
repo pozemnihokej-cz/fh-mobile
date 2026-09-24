@@ -163,15 +163,31 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
                     />
                     {/* PRD-055 Phase 2: supabase-js fan screens (own AsyncBoundary error path) */}
                     <Route path="matches/:matchId/lineup" element={<LineupPage />} />
-                    <Route path="standings" element={<StandingsPage />} />
-                    <Route path="schedule" element={<SchedulePage />} />
-                    <Route path="search" element={<SearchPage />} />
-                    <Route path="clubs/:clubId" element={<ClubDetailPage />} />
-                    <Route path="players/:personId" element={<PlayerDetailPage />} />
-                    <Route path="onboarding" element={<OnboardingPage />} />
-                    <Route path="news" element={<NewsPage />} />
-                    <Route path="notifications" element={<NotificationsPage />} />
-                    <Route path="profile" element={<ProfilePage />} />
+                    {import.meta.env.PROD && import.meta.env.VITE_ENABLE_UNRELEASED_PAGES !== 'true' ? (
+                      <>
+                        <Route path="standings" element={<Navigate to="matches" replace />} />
+                        <Route path="schedule" element={<Navigate to="matches" replace />} />
+                        <Route path="search" element={<Navigate to="matches" replace />} />
+                        <Route path="clubs/:clubId" element={<Navigate to="matches" replace />} />
+                        <Route path="players/:personId" element={<Navigate to="matches" replace />} />
+                        <Route path="onboarding" element={<Navigate to="matches" replace />} />
+                        <Route path="news" element={<Navigate to="matches" replace />} />
+                        <Route path="notifications" element={<Navigate to="matches" replace />} />
+                        <Route path="profile" element={<Navigate to="matches" replace />} />
+                      </>
+                    ) : (
+                      <>
+                        <Route path="standings" element={<StandingsPage />} />
+                        <Route path="schedule" element={<SchedulePage />} />
+                        <Route path="search" element={<SearchPage />} />
+                        <Route path="clubs/:clubId" element={<ClubDetailPage />} />
+                        <Route path="players/:personId" element={<PlayerDetailPage />} />
+                        <Route path="onboarding" element={<OnboardingPage />} />
+                        <Route path="news" element={<NewsPage />} />
+                        <Route path="notifications" element={<NotificationsPage />} />
+                        <Route path="profile" element={<ProfilePage />} />
+                      </>
+                    )}
                     <Route path="*" element={<NotFoundPage />} />
                   </Route>
                   <Route path="*" element={<NotFoundPage />} />
