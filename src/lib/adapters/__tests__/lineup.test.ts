@@ -37,6 +37,22 @@ describe('groupLineup (row → presentation)', () => {
     expect(lineup.home.some((p) => p.name.includes('Referee'))).toBe(false);
     expect(lineup.guest.some((p) => p.name.includes('Referee'))).toBe(false);
   });
+
+  it('correctly maps Czech hosté (with diacritics), hostující, and alternative image fields to guest', () => {
+    const rowsWithDiacritics = [
+      { id: 'g-1', name: 'Eva Hosté', jersey_number: '14', side: 'hosté', photoUrl: 'https://example.com/eva.jpg' },
+      { id: 'g-2', name: 'Lenka Hostující', jersey_number: '15', side: 'Hostující', playerImage: 'https://example.com/lenka.jpg' },
+      { id: 'h-1', name: 'Věra Domácí', jersey_number: '3', side: 'domácí' },
+    ];
+    const lineup = groupLineup(rowsWithDiacritics as any);
+    expect(lineup.home).toHaveLength(1);
+    expect(lineup.home[0].name).toBe('Věra Domácí');
+    expect(lineup.guest).toHaveLength(2);
+    expect(lineup.guest[0].side).toBe('guest');
+    expect(lineup.guest[0].image).toBe('https://example.com/eva.jpg');
+    expect(lineup.guest[1].side).toBe('guest');
+    expect(lineup.guest[1].image).toBe('https://example.com/lenka.jpg');
+  });
 });
 
 describe('fetchLineup', () => {

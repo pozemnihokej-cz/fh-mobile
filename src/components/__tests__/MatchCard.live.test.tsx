@@ -62,4 +62,28 @@ describe('fan MatchCard wrapper → DS live prop (Spec-AC-03)', () => {
     const p = renderWrapper({ ...base, status: 'completed', startedAt: now - 60_000 });
     expect(p.live).toBe(false);
   });
+
+  it('normal match: passes parent club name to UI component', () => {
+    const p = renderWrapper({
+      ...base,
+      homeClubName: 'Slavia',
+      awayClubName: 'Litice',
+      homeTeamName: 'SK Slavia Praha ženy',
+      awayTeamName: 'TJ Plzeň-Litice ženy',
+    });
+    expect(p.home.name).toBe('Slavia');
+    expect(p.away.name).toBe('Litice');
+  });
+
+  it('intra-club derby (e.g. match 77482): passes distinguishing team names with B', () => {
+    const p = renderWrapper({
+      ...base,
+      homeClubName: 'SK Slavia Praha',
+      awayClubName: 'SK Slavia Praha',
+      homeTeamName: 'SK Slavia Praha B',
+      awayTeamName: 'Slavia ženy',
+    });
+    expect(p.home.name).toBe('SK Slavia Praha B');
+    expect(p.away.name).toBe('Slavia ženy');
+  });
 });

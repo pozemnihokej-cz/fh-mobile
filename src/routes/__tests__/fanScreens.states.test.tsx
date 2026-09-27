@@ -30,7 +30,10 @@ vi.mock('@fh/auth', () => ({
 }));
 vi.mock('../../lib/adapters/standings', () => ({ fetchStandings: vi.fn() }));
 vi.mock('../../lib/adapters/schedule', () => ({ fetchSchedule: vi.fn() }));
-vi.mock('../../lib/adapters/lineup', () => ({ fetchLineup: vi.fn() }));
+vi.mock('../../lib/adapters/lineup', async (importOriginal) => {
+  const mod = await importOriginal<any>();
+  return { ...mod, fetchLineup: vi.fn() };
+});
 vi.mock('../../lib/adapters/clubDetail', () => ({ fetchClubDetail: vi.fn() }));
 vi.mock('../../lib/adapters/playerDetail', () => ({ fetchPlayerDetail: vi.fn() }));
 vi.mock('../../lib/adapters/search', () => ({ fetchSearch: vi.fn() }));

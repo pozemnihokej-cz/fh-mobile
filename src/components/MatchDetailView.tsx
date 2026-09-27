@@ -31,9 +31,10 @@ import { isMatchGenuinelyLive } from '@fh/schema';
 import { toImageUrl } from '../lib/runtimeUrls';
 import { supabase } from '../lib/supabase';
 import { useAsyncData } from '../lib/useAsyncData';
-import { fetchLineup, groupLineup, type LineupPlayer } from '../lib/adapters/lineup';
+import { fetchLineup, groupLineup, isGuestSide, type LineupPlayer } from '../lib/adapters/lineup';
 import { PlayerDetailModal } from './PlayerDetailModal';
 import { formatPositionCz } from '../lib/playerUtils';
+import { resolveDisplayTeamNames } from '../lib/teamNames';
 
 export function MatchDetailView({
   matchId,
@@ -91,6 +92,8 @@ export function MatchDetailView({
     return lineupData ?? { home: [], guest: [] };
   }, [convexRoster, lineupData]);
   const currentPlayers = rosterSide === 'home' ? lineup.home : lineup.guest;
+  const fieldPlayers = useMemo(() => currentPlayers.filter((p) => !p.isCoach), [currentPlayers]);
+  const coaches = useMemo(() => currentPlayers.filter((p) => p.isCoach), [currentPlayers]);
 
   // Fan notification surface: a Snackbar fires every time a new
   // highlightable event becomes time-visible.
@@ -165,6 +168,8 @@ export function MatchDetailView({
   const renderPlayerRow = (p: LineupPlayer): JSX.Element => {
     const positionLabel = formatPositionCz(p.position, p.isCoach);
     const imageUrl = toImageUrl(p.image);
+    const isGuest = isGuestSide(p.side);
+    const accent = isGuest ? theme.palette.info.main : theme.palette.primary.main;
 
     return (
       <Box
@@ -193,7 +198,7 @@ export function MatchDetailView({
           transition: 'all 0.15s ease',
           '&:hover': {
             bgcolor: alpha(theme.palette.common.white, 0.08),
-            borderColor: alpha(theme.palette.primary.main, 0.35),
+            borderColor: alpha(accent, 0.35),
             transform: 'translateX(2px)',
           },
           ...focusRing(theme),
@@ -222,22 +227,22 @@ export function MatchDetailView({
           )}
         </Avatar>
 
-        {/* Jersey number */}
-        {p.jersey && (
-          <Typography
-            sx={{
-              ...typeScale.bodyStrong,
-              fontSize: '0.82rem',
-              fontVariantNumeric: 'tabular-nums',
-              fontWeight: 900,
-              color: alpha(theme.palette.common.white, 0.6),
-              minWidth: 20,
-              textAlign: 'center',
-            }}
-          >
-            {p.jersey}
-          </Typography>
-        )}
+        {/* Jersey number slot — always reserve space so names never jump left when player has no number */}
+        <Typography
+          sx={{
+            ...typeScale.bodyStrong,
+            fontSize: '0.82rem',
+            fontVariantNumeric: 'tabular-nums',
+            fontWeight: 900,
+            color: alpha(theme.palette.common.white, 0.6),
+            minWidth: 24,
+            textAlign: 'center',
+            flexShrink: 0,
+            userSelect: 'none',
+          }}
+        >
+          {p.isCoach ? '' : p.jersey || ''}
+        </Typography>
 
         {/* Player Name */}
         <Typography
@@ -264,9 +269,9 @@ export function MatchDetailView({
                 height: 20,
                 fontSize: '0.62rem',
                 fontWeight: 900,
-                bgcolor: alpha(theme.palette.primary.main, 0.2),
-                color: 'primary.main',
-                border: `1px solid ${alpha(theme.palette.primary.main, 0.4)}`,
+                bgcolor: alpha(accent, 0.2),
+                color: accent,
+                border: `1px solid ${alpha(accent, 0.4)}`,
                 '& .MuiChip-label': { px: 0.75 },
               }}
             />
@@ -291,6 +296,50 @@ export function MatchDetailView({
     );
   };
 
+  const { home: displayHome, away: displayAway } = resolveDisplayTeamNames(match);
+
+  const handleTimelineItemClick = (event: any) => {
+    if (!event?.playerName || isUnknownPlayer(event.playerName)) return;
+    const raw = String(event.playerName).trim();
+    const hasDash = raw.includes(' - ');
+    const jerseyPart = hasDash ? raw.split(' - ')[0].trim() : null;
+    const namePart = hasDash ? raw.split(' - ')[1].trim() : raw;
+
+    const isEventGuest = isGuestSide(event.side);
+    const sidePlayers = isEventGuest ? lineup.guest : lineup.home;
+    const nameLower = namePart ? namePart.toLowerCase().trim() : '';
+
+    // Prioritize name matches so players sharing jersey numbers are accurately identified
+    let matched = nameLower
+      ? sidePlayers.find((p) => p.name && p.name.toLowerCase().trim() === nameLower)
+      : undefined;
+
+    if (!matched && nameLower) {
+      matched = sidePlayers.find((p) => {
+        if (!p.name) return false;
+        const pNorm = p.name.toLowerCase().trim();
+        return pNorm.includes(nameLower) || nameLower.includes(pNorm);
+      });
+    }
+
+    if (!matched && jerseyPart) {
+      matched = sidePlayers.find((p) => p.jersey && p.jersey.trim() === jerseyPart);
+    }
+
+    const targetPlayer: LineupPlayer = matched ?? {
+      id: event._id || `ev-player-${Date.now()}`,
+      name: namePart || 'Hráč',
+      jersey: jerseyPart,
+      position: null,
+      isCaptain: false,
+      isCoach: false,
+      image: event.playerImage || event.image || null,
+      side: isEventGuest ? 'guest' : 'home',
+    };
+
+    setSelectedPlayerModal(targetPlayer);
+  };
+
   return (
     <Box>
       {/* Detail scoreboard header — compact OM-style banner */}
@@ -299,8 +348,8 @@ export function MatchDetailView({
           compact
           live={isLive}
           league={match.leagueName}
-          home={{ name: match.homeTeamName || match.homeClubName || 'Domácí', logo: toImageUrl(match.homeClubLogo ?? match.homeTeamLogo) }}
-          away={{ name: match.awayTeamName || match.awayClubName || 'Hosté', logo: toImageUrl(match.awayClubLogo ?? match.awayTeamLogo) }}
+          home={{ name: displayHome, logo: toImageUrl(match.homeClubLogo ?? match.homeTeamLogo) }}
+          away={{ name: displayAway, logo: toImageUrl(match.awayClubLogo ?? match.awayTeamLogo) }}
           score={
             isLive || match.status === 'completed' || (match.status === 'in_progress' && !isLive)
               ? { home: derivedState.score.home, away: derivedState.score.away }
@@ -441,8 +490,8 @@ export function MatchDetailView({
                   const sec = s.remainingSeconds % 60;
                   const timeStr = `${min}:${sec.toString().padStart(2, '0')}`;
                   const teamName = s.side === 'home'
-                    ? (match.homeTeamName || match.homeClubName || 'Domácí')
-                    : (match.awayTeamName || match.awayClubName || 'Hosté');
+                    ? displayHome
+                    : displayAway;
                   return (
                     <Box key={s.id} sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -484,14 +533,15 @@ export function MatchDetailView({
 
           <MatchTimeline
             events={events}
-            homeTeamName={match.homeTeamName}
-            homeTeamLogo={match.homeTeamLogo}
-            awayTeamName={match.awayTeamName}
-            awayTeamLogo={match.awayTeamLogo}
+            homeTeamName={displayHome}
+            homeTeamLogo={match.homeClubLogo ?? match.homeTeamLogo}
+            awayTeamName={displayAway}
+            awayTeamLogo={match.awayClubLogo ?? match.awayTeamLogo}
             partType={matchConfig?.partType}
             gameTime={matchConfig?.gameTime}
             variant="fancy"
             activeSuspensions={derivedState.activeSuspensions}
+            onItemClick={handleTimelineItemClick}
           />
         </Box>
       )}
@@ -633,11 +683,11 @@ export function MatchDetailView({
                     fontWeight: 900,
                   }}
                 >
-                  {(match.homeTeamName || match.homeClubName || 'D')[0]}
+                  {(displayHome || 'D')[0]}
                 </Avatar>
               }
             >
-              {match.homeTeamName} {lineup.home.length > 0 && `(${lineup.home.length})`}
+              {displayHome} {lineup.home.length > 0 && `(${lineup.home.length})`}
             </Button>
             <Button
               fullWidth
@@ -646,9 +696,9 @@ export function MatchDetailView({
                 ...focusRing(theme),
                 py: 0.7,
                 borderRadius: '8px',
-                bgcolor: rosterSide === 'guest' ? alpha(theme.palette.primary.main, 0.2) : 'transparent',
-                color: rosterSide === 'guest' ? 'primary.main' : alpha(theme.palette.common.white, 0.7),
-                border: rosterSide === 'guest' ? `1px solid ${alpha(theme.palette.primary.main, 0.3)}` : '1px solid transparent',
+                bgcolor: rosterSide === 'guest' ? alpha(theme.palette.info.main, 0.2) : 'transparent',
+                color: rosterSide === 'guest' ? theme.palette.info.main : alpha(theme.palette.common.white, 0.7),
+                border: rosterSide === 'guest' ? `1px solid ${alpha(theme.palette.info.main, 0.3)}` : '1px solid transparent',
                 fontWeight: 800,
                 fontSize: '0.8rem',
                 textTransform: 'none',
@@ -667,23 +717,54 @@ export function MatchDetailView({
                     fontWeight: 900,
                   }}
                 >
-                  {(match.awayTeamName || match.awayClubName || 'H')[0]}
+                  {(displayAway || 'H')[0]}
                 </Avatar>
               }
             >
-              {match.awayTeamName} {lineup.guest.length > 0 && `(${lineup.guest.length})`}
+              {displayAway} {lineup.guest.length > 0 && `(${lineup.guest.length})`}
             </Button>
           </Box>
 
           <Box sx={{ mb: 2 }}>
-            {currentPlayers.length > 0 ? (
+            {fieldPlayers.length > 0 ? (
               <Stack spacing={0.75}>
-                {currentPlayers.map((p) => renderPlayerRow(p))}
+                {fieldPlayers.map((p) => renderPlayerRow(p))}
               </Stack>
             ) : (
               <Typography sx={{ textAlign: 'center', color: 'text.secondary', py: 3, fontSize: '0.85rem' }}>
                 Žádní hráči v této sestavě
               </Typography>
+            )}
+
+            {coaches.length > 0 && (
+              <Box sx={{ mt: 2.5 }}>
+                <Box
+                  sx={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 1,
+                    mb: 1,
+                    px: 0.5,
+                  }}
+                >
+                  <Typography
+                    variant="caption"
+                    sx={{
+                      fontWeight: 900,
+                      fontSize: '0.72rem',
+                      color: alpha(theme.palette.common.white, 0.6),
+                      letterSpacing: '0.08em',
+                      textTransform: 'uppercase',
+                    }}
+                  >
+                    {coaches.length === 1 ? 'Trenér' : 'Realizační tým / Trenéři'}
+                  </Typography>
+                  <Box sx={{ flex: 1, height: '1px', bgcolor: alpha(theme.palette.common.white, 0.08) }} />
+                </Box>
+                <Stack spacing={0.75}>
+                  {coaches.map((c) => renderPlayerRow(c))}
+                </Stack>
+              </Box>
             )}
           </Box>
         </Box>
@@ -698,16 +779,34 @@ export function MatchDetailView({
       >
         {activeNotification ? (() => {
           const ev: any = activeNotification.event;
-          const side = ev.side === 'home' ? (match?.homeTeamName || match?.homeClubName) : (match?.awayTeamName || match?.awayClubName);
+          const side = ev.side === 'home' ? displayHome : displayAway;
           const isGoal = ev.type === 'goal' || ev.type === 'shootout_goal';
-          const cardColorCz: Record<string, string> = { green: 'zelená', yellow: 'žlutá', red: 'červená' };
+          const cardColorCz: Record<string, string> = {
+            green: 'zelená', yellow: 'žlutá', red: 'červená',
+            G: 'zelená', Y: 'žlutá', R: 'červená',
+            g: 'zelená', y: 'žlutá', r: 'červená',
+          };
+          const cardColorLabel = cardColorCz[ev.event?.card] ?? ev.event?.card ?? '?';
           const label = isGoal
             ? 'GÓL'
             : ev.type === 'card'
-              ? `KARTA (${cardColorCz[ev.event?.card] ?? ev.event?.card ?? '?'})`
+              ? `KARTA (${cardColorLabel})`
               : ev.type.toUpperCase();
           return (
-            <Box role="alert">
+            <Box
+              role="alert"
+              tabIndex={0}
+              onClick={() => {
+                if (ev) handleTimelineItemClick(ev);
+              }}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  if (ev) handleTimelineItemClick(ev);
+                }
+              }}
+              sx={{ cursor: 'pointer', ...focusRing(theme) }}
+            >
               <LiveEventToast
                 tone={isGoal ? 'goal' : ev.type === 'card' ? 'card' : 'info'}
                 icon={isGoal ? <FhIcon name="goal" sx={{ fontSize: 'inherit' }} /> : ev.type === 'card' ? <FhIcon name="card" sx={{ fontSize: 'inherit' }} /> : <FhIcon name="injury" sx={{ fontSize: 'inherit' }} />}
@@ -723,14 +822,14 @@ export function MatchDetailView({
       <PlayerDetailModal
         player={selectedPlayerModal}
         teamName={
-          selectedPlayerModal?.side === 'guest'
-            ? (match.awayTeamName || match.awayClubName)
-            : (match.homeTeamName || match.homeClubName)
+          isGuestSide(selectedPlayerModal?.side)
+            ? displayAway
+            : displayHome
         }
         teamLogo={
-          selectedPlayerModal?.side === 'guest'
-            ? (match.awayClubLogo ?? match.awayTeamLogo)
-            : (match.homeClubLogo ?? match.homeTeamLogo)
+          isGuestSide(selectedPlayerModal?.side)
+            ? toImageUrl(match.awayClubLogo ?? match.awayTeamLogo)
+            : toImageUrl(match.homeClubLogo ?? match.homeTeamLogo)
         }
         onClose={() => setSelectedPlayerModal(null)}
       />

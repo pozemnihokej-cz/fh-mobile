@@ -21,6 +21,7 @@ import { AsyncBoundary } from '../components/AsyncBoundary';
 import { useTenantContext } from './TenantContext';
 import { useFanPreferences } from '../lib/useFanPreferences';
 import { useNearestVenue } from '../hooks/useNearestVenue';
+import { resolveDisplayTeamNames } from '../lib/teamNames';
 
 function startOfDay(ts: number): number {
   const d = new Date(ts);
@@ -214,8 +215,7 @@ export default function MatchesPage(): JSX.Element {
     const set = new Set<string>();
     if (matches) {
       for (const m of matches as MatchCardData[]) {
-        const home = m.homeTeamName || m.homeClubName;
-        const away = m.awayTeamName || m.awayClubName;
+        const { home, away } = resolveDisplayTeamNames(m);
         if (home && home.trim()) set.add(home.trim());
         if (away && away.trim()) set.add(away.trim());
       }
@@ -256,8 +256,7 @@ export default function MatchesPage(): JSX.Element {
         if (m.leagueName !== selectedLeague) return false;
       }
       if (selectedTeam !== 'all') {
-        const home = m.homeTeamName || m.homeClubName;
-        const away = m.awayTeamName || m.awayClubName;
+        const { home, away } = resolveDisplayTeamNames(m);
         if (
           home !== selectedTeam &&
           away !== selectedTeam &&

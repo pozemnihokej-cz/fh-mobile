@@ -19,7 +19,10 @@ vi.mock('@fh/auth', () => ({ useAuth: () => ({ user: null, switchTenant: vi.fn()
 // Read adapters: resolve to empty so screens render their container testid fast.
 vi.mock('../../lib/adapters/standings', () => ({ fetchStandings: vi.fn(async () => []) }));
 vi.mock('../../lib/adapters/schedule', () => ({ fetchSchedule: vi.fn(async () => []) }));
-vi.mock('../../lib/adapters/lineup', () => ({ fetchLineup: vi.fn(async () => ({ home: [], guest: [] })) }));
+vi.mock('../../lib/adapters/lineup', async (importOriginal) => {
+  const mod = await importOriginal<any>();
+  return { ...mod, fetchLineup: vi.fn(async () => ({ home: [], guest: [] })) };
+});
 vi.mock('../../lib/adapters/clubDetail', () => ({ fetchClubDetail: vi.fn(async () => null) }));
 vi.mock('../../lib/adapters/playerDetail', () => ({ fetchPlayerDetail: vi.fn(async () => null) }));
 vi.mock('../../lib/adapters/search', () => ({ fetchSearch: vi.fn(async () => ({ clubs: [], teams: [], players: [], total: 0 })) }));
