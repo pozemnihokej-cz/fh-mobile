@@ -29,7 +29,7 @@ export interface LineupPlayer {
   isCaptain: boolean;
   isCoach: boolean;
   image?: string | null;
-  side?: 'home' | 'guest';
+  side?: 'home' | 'guest' | 'away';
 }
 
 export interface Lineup {
@@ -37,9 +37,18 @@ export interface Lineup {
   guest: LineupPlayer[];
 }
 
+export function isGuestSide(side: unknown): boolean {
+  if (!side) return false;
+  const s = String(side)
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .trim();
+  return s === 'guest' || s === 'away' || s.startsWith('host') || s === 'g' || s === 'a';
+}
+
 function toPlayer(row: MatchPlayerRow): LineupPlayer {
-  const rawSide = String(row.side ?? '').toLowerCase().trim();
-  const isGuest = rawSide === 'guest' || rawSide === 'away' || rawSide === 'host' || rawSide === 'hoste';
+  const isGuest = isGuestSide(row.side);
   return {
     id: row._id || row.id || '',
     name: row.name || '—',
@@ -47,7 +56,7 @@ function toPlayer(row: MatchPlayerRow): LineupPlayer {
     position: row.position || null,
     isCaptain: row.role === 'captain' || row.role === 'Captain' || row.role === 'C',
     isCoach: row.role === 'coach',
-    image: row.image || null,
+    image: row.image || (row as any).photoUrl || (row as any).photo_url || (row as any).imageUrl || (row as any).playerImage || null,
     side: isGuest ? 'guest' : 'home',
   };
 }
@@ -72,8 +81,7 @@ export function groupLineup(rows: MatchPlayerRow[]): Lineup {
   for (const r of rows) {
     if (r.role === 'referee' || r.role === 'Official' || r.side === 'neutral') continue;
     const player = toPlayer(r);
-    const rawSide = String(r.side ?? '').toLowerCase().trim();
-    if (rawSide === 'guest' || rawSide === 'away' || rawSide === 'host' || rawSide === 'hoste') {
+    if (isGuestSide(r.side)) {
       guest.push(player);
     } else {
       home.push(player); // default any non-guest side to home

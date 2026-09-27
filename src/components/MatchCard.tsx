@@ -1,6 +1,7 @@
 import { MatchCard as UIMatchCard } from '@fh/ui';
 import { isMatchGenuinelyLive } from '@fh/schema';
 import { toImageUrl } from '../lib/runtimeUrls';
+import { resolveDisplayTeamNames } from '../lib/teamNames';
 
 /**
  * CHANGE-055 / mobile DS adoption: the styled presentation now lives in
@@ -84,16 +85,18 @@ export function MatchCard({
          : undefined))
     : undefined;
 
+  const { home: homeName, away: awayName } = resolveDisplayTeamNames(match);
+
   return (
     <UIMatchCard
       home={{
-        name: match.homeTeamName || match.homeClubName || 'Domácí',
+        name: homeName,
         // CHANGE-194 Bug 1 — resolve stored /storage/v1/assets/… paths to a
         // proxied public-object URL so real crests render (was raw → 404).
         logo: toImageUrl(match.homeClubLogo ?? match.homeTeamLogo),
       }}
       away={{
-        name: match.awayTeamName || match.awayClubName || 'Hosté',
+        name: awayName,
         logo: toImageUrl(match.awayClubLogo ?? match.awayTeamLogo),
       }}
       league={match.leagueName}
