@@ -20,13 +20,17 @@
  *                     unplayed row's status box must not be laid out at all and its teams
  *                     column must be wider than the played row's by the `xs` reserve plus
  *                     the flex gap. This is the ISSUE-133 behaviour, now scoped to narrow.
+ *   TEST-007 (bound)  viewport 900, the `md` breakpoint itself → the NARROWEST card the
+ *                     two-column list can produce, 420px. This is the load-bearing number
+ *                     behind the threshold, so it gets its own guard: TEST-005 runs at 1280
+ *                     with 170px of slack and would not notice the boundary moving.
  *
  * Both tests also assert the box is in the DOM at BOTH widths (five row children either
  * way): the switch is `display`, not presence, so a test that only counted children would
  * no longer distinguish the two states.
  *
- * Deliberately structural, with one existing test id: the row's `CardContent` children ARE
- * the layout (time · home crest · teams · away crest · status).
+ * Deliberately structural, with NO test ids: the row's `CardContent` children ARE the layout
+ * (time · home crest · teams · away crest · status).
  *
  * Tenant safety: `e2e-test` slug only, auth + tenant lookup mocked in-page and the Convex
  * list replayed over the intercepted sync socket — no Supabase write, no Convex backend
@@ -41,13 +45,15 @@ const RESERVED_WIDTH_SM = 66;
 /** Its `xs` (<600px) reserved width — the viewport-keyed width is unchanged by SPEC-093. */
 const RESERVED_WIDTH_XS = 60;
 /**
- * `COMPACT_STATUS_RESERVE_MIN_PX` in packages/ui/src/mobile/MatchCard.tsx: the card-content-box
- * width at and above which an EMPTY status container keeps its reserve. Duplicated here because
- * the e2e cannot import from `@fh/ui` internals; both tests assert the measured card lands on
- * the intended side of it, so a change to one without the other fails loudly rather than
- * silently testing the wrong branch.
+ * `COMPACT_STATUS_RESERVE_MIN_PX` (400) in packages/ui/src/mobile/MatchCard.tsx is a
+ * card-CONTENT-box width; `boundingBox().width` is a BORDER box, so the comparable number is
+ * 402 (1px border each side).
+ *
+ * This is a BRACKET, not a pin: it only asserts that each test measured the branch it means to
+ * measure. It does NOT pin the threshold's value — any threshold in (356, 568] leaves all three
+ * tests green. The exact value is pinned in packages/ui/src/mobile/__tests__/MatchCard.test.tsx.
  */
-const RESERVE_MIN_CARD_PX = 420;
+const RESERVE_MIN_CARD_BORDER_PX = 402;
 /**
  * The compact card's CardContent is a flex row with `gap: 1.25` (= 10px). Dropping
  * the status container therefore returns the reserved width AND the gap that sat in
@@ -129,7 +135,7 @@ test.describe('ISSUE-135 — the compact fan card drops its empty status reserve
     const playedCardWidth = await widthOf(playedCard);
     const unplayedCardWidth = await widthOf(unplayedCard);
     expect(Math.round(playedCardWidth)).toBe(Math.round(unplayedCardWidth));
-    expect(playedCardWidth).toBeGreaterThanOrEqual(RESERVE_MIN_CARD_PX);
+    expect(playedCardWidth).toBeGreaterThanOrEqual(RESERVE_MIN_CARD_BORDER_PX);
 
     // 1. Both rows carry the same five-part layout: time, home crest, teams, away crest,
     //    status container. (Neither fixture is starred; the starred indicator is a sixth,
@@ -144,7 +150,6 @@ test.describe('ISSUE-135 — the compact fan card drops its empty status reserve
     //    collapsed one. Only the presence of a layout box can, so that is what is asserted
     //    here and, inverted, in TEST-006.
     const playedStatus = await boxOf(rowChildren(playedCard).nth(4));
-    expect(await rowChildren(unplayedCard).nth(4).boundingBox()).not.toBeNull();
     const unplayedStatus = await boxOf(rowChildren(unplayedCard).nth(4));
     expect(Math.round(playedStatus.width)).toBe(RESERVED_WIDTH_SM);
     expect(Math.round(unplayedStatus.width)).toBe(RESERVED_WIDTH_SM);
@@ -157,6 +162,36 @@ test.describe('ISSUE-135 — the compact fan card drops its empty status reserve
 
     // 4. …and the away crests line up: the same offset from each card's left edge. This is
     //    the vertical line of away logos the fixed reserve exists to produce.
+    const playedCrest = await offsetInCard(playedCard, rowChildren(playedCard).nth(3));
+    const unplayedCrest = await offsetInCard(unplayedCard, rowChildren(unplayedCard).nth(3));
+    expect(Math.round(unplayedCrest)).toBe(Math.round(playedCrest));
+  });
+
+  test('TEST-007 the md breakpoint itself (viewport 900, the narrowest two-column card): the reserve survives', async ({
+    page,
+  }) => {
+    // The threshold is derived from THIS card: (900 - 48 - 12) / 2 = 420px of card, 418px of
+    // content box. It is the whole justification for the number, so it is guarded here rather
+    // than left in a spec table. (With a classic scrollbar the same viewport yields ~410.5px,
+    // which is why the threshold is 400 and not 418 — that platform is not measured here.)
+    await page.setViewportSize({ width: 900, height: 720 });
+    await installAuthMocks(page);
+    await installConvexReplay(page, { list: [PLAYED, UNPLAYED] });
+    await page.goto(`/${E2E_TEST_SLUG}/matches`);
+
+    const playedCard = page.locator('.MuiCard-root').filter({ hasText: 'Gamma HC' }).first();
+    const unplayedCard = page.locator('.MuiCard-root').filter({ hasText: 'Alpha HC' }).first();
+    await expect(playedCard).toBeVisible({ timeout: 15_000 });
+    await expect(unplayedCard).toBeVisible();
+
+    // Two columns, and the card is the derived 420px — if this number moves, the threshold's
+    // justification has moved with it and this test says so.
+    const cardWidth = await widthOf(unplayedCard);
+    expect(Math.round(cardWidth)).toBe(420);
+    expect(cardWidth).toBeGreaterThanOrEqual(RESERVE_MIN_CARD_BORDER_PX);
+
+    const unplayedStatus = await boxOf(rowChildren(unplayedCard).nth(4));
+    expect(Math.round(unplayedStatus.width)).toBe(RESERVED_WIDTH_SM);
     const playedCrest = await offsetInCard(playedCard, rowChildren(playedCard).nth(3));
     const unplayedCrest = await offsetInCard(unplayedCard, rowChildren(unplayedCard).nth(3));
     expect(Math.round(unplayedCrest)).toBe(Math.round(playedCrest));
@@ -179,7 +214,7 @@ test.describe('ISSUE-135 — the compact fan card drops its empty status reserve
     const playedCardWidth = await widthOf(playedCard);
     const unplayedCardWidth = await widthOf(unplayedCard);
     expect(Math.round(playedCardWidth)).toBe(Math.round(unplayedCardWidth));
-    expect(playedCardWidth).toBeLessThan(RESERVE_MIN_CARD_PX);
+    expect(playedCardWidth).toBeLessThan(RESERVE_MIN_CARD_BORDER_PX);
 
     // 1. The status container is still in the DOM on both rows — the switch is `display`.
     await expect(rowChildren(playedCard)).toHaveCount(5);
