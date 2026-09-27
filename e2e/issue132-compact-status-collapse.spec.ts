@@ -1,24 +1,36 @@
 /**
- * ISSUE-132 / SPEC-091 TEST-005 (Spec-AC-05, e2e) — the compact match card must
- * not reserve its 60/66px status column for a match that has nothing to show
- * there.
+ * ISSUE-133 / SPEC-091 TEST-005, refined by ISSUE-135 / SPEC-093 TEST-005 + TEST-006 —
+ * the compact match card reserves a fixed 60/66px status column so away crests line up
+ * down the column, and drops that reserve for a match with nothing to show there ONLY
+ * while the CARD itself is narrow.
  *
- * Measured in a REAL layout engine, which is the point: jsdom has no layout, so
- * the `@fh/ui` component tests can only pin the DECLARED width. Here we measure
- * the laid-out boxes of two rows rendered side by side in ONE list — a match
- * played earlier today (chip + score → the container renders) and one still to
- * be played today (nothing → the container must be gone) — and assert the
- * played row's teams column is exactly the reserved width plus the flex gap
- * NARROWER than the unplayed row's.
+ * Measured in a REAL layout engine, which is the point twice over: jsdom has no layout,
+ * and it does not evaluate container queries at all, so the `@fh/ui` component tests can
+ * only pin the DECLARED rules. Here we measure the laid-out boxes of a played and an
+ * unplayed row from ONE list at two widths:
  *
- * Deliberately structural, with no new test ids: the row's `CardContent`
- * children ARE the layout (time · home crest · teams · away crest · [status]),
- * so the pre-fix build fails these assertions on the counts and the widths
- * rather than on a missing selector.
+ *   TEST-005 (wide)   viewport 1280 → the fan matches list is in its two-column layout
+ *                     (`Grid item xs={12} md={6}` in `Container maxWidth="lg"`), so each
+ *                     card is ~570px — comfortably over the 418px card-content-box
+ *                     threshold. The unplayed row must reserve the SAME 66px the played
+ *                     row does, both teams columns must be the same width, and both away
+ *                     crests must sit at the same offset from their card's left edge.
+ *                     That last one is the property the reserve exists for.
+ *   TEST-006 (narrow) viewport 390 → one column, ~358px card, under the threshold. The
+ *                     unplayed row's status box must not be laid out at all and its teams
+ *                     column must be wider than the played row's by the `xs` reserve plus
+ *                     the flex gap. This is the ISSUE-133 behaviour, now scoped to narrow.
  *
- * Tenant safety: `e2e-test` slug only, auth + tenant lookup mocked in-page and
- * the Convex list replayed over the intercepted sync socket — no Supabase
- * write, no Convex backend call, `cz-field-hockey-union` never referenced.
+ * Both tests also assert the box is in the DOM at BOTH widths (five row children either
+ * way): the switch is `display`, not presence, so a test that only counted children would
+ * no longer distinguish the two states.
+ *
+ * Deliberately structural, with one existing test id: the row's `CardContent` children ARE
+ * the layout (time · home crest · teams · away crest · status).
+ *
+ * Tenant safety: `e2e-test` slug only, auth + tenant lookup mocked in-page and the Convex
+ * list replayed over the intercepted sync socket — no Supabase write, no Convex backend
+ * call, `cz-field-hockey-union` never referenced.
  */
 import { test, expect, type Locator } from '@playwright/test';
 import { E2E_TEST_SLUG, installAuthMocks } from './utils/mockAuth';
@@ -26,6 +38,16 @@ import { installConvexReplay, REPLAY_MATCH } from './utils/convexReplay';
 
 /** The `sm` (>=600px) reserved width of the status container in @fh/ui MatchCard. */
 const RESERVED_WIDTH_SM = 66;
+/** Its `xs` (<600px) reserved width — the viewport-keyed width is unchanged by SPEC-093. */
+const RESERVED_WIDTH_XS = 60;
+/**
+ * `COMPACT_STATUS_RESERVE_MIN_PX` in packages/ui/src/mobile/MatchCard.tsx: the card-content-box
+ * width at and above which an EMPTY status container keeps its reserve. Duplicated here because
+ * the e2e cannot import from `@fh/ui` internals; both tests assert the measured card lands on
+ * the intended side of it, so a change to one without the other fails loudly rather than
+ * silently testing the wrong branch.
+ */
+const RESERVE_MIN_CARD_PX = 420;
 /**
  * The compact card's CardContent is a flex row with `gap: 1.25` (= 10px). Dropping
  * the status container therefore returns the reserved width AND the gap that sat in
@@ -72,14 +94,27 @@ function rowChildren(card: Locator): Locator {
   return card.locator('.MuiCardContent-root > *');
 }
 
-async function widthOf(node: Locator): Promise<number> {
+async function boxOf(node: Locator) {
   const box = await node.boundingBox();
   expect(box, 'the measured node must be laid out').not.toBeNull();
-  return box!.width;
+  return box!;
 }
 
-test.describe('ISSUE-132 — empty status column collapses in the compact fan card', () => {
-  test('the unplayed row has no status box and its teams column reclaims the reserved width', async ({ page }) => {
+async function widthOf(node: Locator): Promise<number> {
+  return (await boxOf(node)).width;
+}
+
+/** Offset of a row child from its own card's left edge — comparable across columns. */
+async function offsetInCard(card: Locator, child: Locator): Promise<number> {
+  const [cardBox, childBox] = [await boxOf(card), await boxOf(child)];
+  return childBox.x - cardBox.x;
+}
+
+test.describe('ISSUE-135 — the compact fan card drops its empty status reserve only on a narrow card', () => {
+  test('TEST-005 wide card (two-column list, viewport 1280): the unplayed row reserves the status width and keeps the away crests aligned', async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 1280, height: 720 });
     await installAuthMocks(page);
     await installConvexReplay(page, { list: [PLAYED, UNPLAYED] });
     await page.goto(`/${E2E_TEST_SLUG}/matches`);
@@ -89,29 +124,78 @@ test.describe('ISSUE-132 — empty status column collapses in the compact fan ca
     await expect(playedCard).toBeVisible({ timeout: 15_000 });
     await expect(unplayedCard).toBeVisible();
 
-    // 1. The played row keeps its five-part layout: time, home crest, teams,
-    //    away crest, status container. (Neither fixture is starred; the starred
-    //    indicator is a sixth, absolutely-positioned child when it is present.)
+    // 0. Both cards are wide enough for the reserve — otherwise everything below would be
+    //    asserting the narrow branch by accident.
+    const playedCardWidth = await widthOf(playedCard);
+    const unplayedCardWidth = await widthOf(unplayedCard);
+    expect(Math.round(playedCardWidth)).toBe(Math.round(unplayedCardWidth));
+    expect(playedCardWidth).toBeGreaterThanOrEqual(RESERVE_MIN_CARD_PX);
+
+    // 1. Both rows carry the same five-part layout: time, home crest, teams, away crest,
+    //    status container. (Neither fixture is starred; the starred indicator is a sixth,
+    //    absolutely-positioned child when it is present.)
     await expect(rowChildren(playedCard)).toHaveCount(5);
-    // 2. The unplayed row has FOUR: the status container is not rendered at all.
-    await expect(rowChildren(unplayedCard)).toHaveCount(4);
+    await expect(rowChildren(unplayedCard)).toHaveCount(5);
 
-    // 3. The played row's status container is the real, laid-out 66px box.
-    const status = rowChildren(playedCard).nth(4);
-    const statusBox = await status.boundingBox();
-    expect(statusBox).not.toBeNull();
-    expect(Math.round(statusBox!.width)).toBe(RESERVED_WIDTH_SM);
-    expect(statusBox!.height).toBeGreaterThan(0);
+    // 2. BOTH status containers are laid out at the reserved width — the unplayed one holds
+    //    nothing, which is exactly the space being reserved for a score.
+    //    NOTE: an empty reserve is a 66 x 0 box, and Playwright's toBeVisible()/toBeHidden()
+    //    both key off a NON-EMPTY box, so neither can tell a reserved empty column from a
+    //    collapsed one. Only the presence of a layout box can, so that is what is asserted
+    //    here and, inverted, in TEST-006.
+    const playedStatus = await boxOf(rowChildren(playedCard).nth(4));
+    expect(await rowChildren(unplayedCard).nth(4).boundingBox()).not.toBeNull();
+    const unplayedStatus = await boxOf(rowChildren(unplayedCard).nth(4));
+    expect(Math.round(playedStatus.width)).toBe(RESERVED_WIDTH_SM);
+    expect(Math.round(unplayedStatus.width)).toBe(RESERVED_WIDTH_SM);
+    expect(playedStatus.height).toBeGreaterThan(0);
 
-    // 4. The teams column (the flex:1 child, index 2) reclaims exactly that
-    //    width on the unplayed row. This is the defect, measured: 66px of every
-    //    unplayed row was spent on a 0px-tall blank box.
+    // 3. So the teams columns are the same width…
     const playedTeams = await widthOf(rowChildren(playedCard).nth(2));
     const unplayedTeams = await widthOf(rowChildren(unplayedCard).nth(2));
-    expect(Math.round(unplayedTeams - playedTeams)).toBe(RESERVED_WIDTH_SM + ROW_GAP);
+    expect(Math.round(unplayedTeams)).toBe(Math.round(playedTeams));
 
-    // 5. Both rows are the same overall width, so the comparison above is
-    //    apples-to-apples and not an artefact of two different containers.
-    expect(Math.round(await widthOf(playedCard))).toBe(Math.round(await widthOf(unplayedCard)));
+    // 4. …and the away crests line up: the same offset from each card's left edge. This is
+    //    the vertical line of away logos the fixed reserve exists to produce.
+    const playedCrest = await offsetInCard(playedCard, rowChildren(playedCard).nth(3));
+    const unplayedCrest = await offsetInCard(unplayedCard, rowChildren(unplayedCard).nth(3));
+    expect(Math.round(unplayedCrest)).toBe(Math.round(playedCrest));
+  });
+
+  test('TEST-006 narrow card (one column, viewport 390): the unplayed row has no laid-out status box and its teams column reclaims the reserve', async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await installAuthMocks(page);
+    await installConvexReplay(page, { list: [PLAYED, UNPLAYED] });
+    await page.goto(`/${E2E_TEST_SLUG}/matches`);
+
+    const playedCard = page.locator('.MuiCard-root').filter({ hasText: 'Gamma HC' }).first();
+    const unplayedCard = page.locator('.MuiCard-root').filter({ hasText: 'Alpha HC' }).first();
+    await expect(playedCard).toBeVisible({ timeout: 15_000 });
+    await expect(unplayedCard).toBeVisible();
+
+    // 0. Both cards are under the threshold, so this really is the narrow branch.
+    const playedCardWidth = await widthOf(playedCard);
+    const unplayedCardWidth = await widthOf(unplayedCard);
+    expect(Math.round(playedCardWidth)).toBe(Math.round(unplayedCardWidth));
+    expect(playedCardWidth).toBeLessThan(RESERVE_MIN_CARD_PX);
+
+    // 1. The status container is still in the DOM on both rows — the switch is `display`.
+    await expect(rowChildren(playedCard)).toHaveCount(5);
+    await expect(rowChildren(unplayedCard)).toHaveCount(5);
+
+    // 2. The played row's box is laid out at the `xs` reserve; the unplayed row's is not laid
+    //    out at all (`display: none` has no box).
+    const playedStatus = await boxOf(rowChildren(playedCard).nth(4));
+    expect(Math.round(playedStatus.width)).toBe(RESERVED_WIDTH_XS);
+    expect(playedStatus.height).toBeGreaterThan(0);
+    expect(await rowChildren(unplayedCard).nth(4).boundingBox()).toBeNull();
+
+    // 3. So the teams column reclaims the reserve AND the 10px flex gap that sat in front of
+    //    it — the ISSUE-133 fix, now only here.
+    const playedTeams = await widthOf(rowChildren(playedCard).nth(2));
+    const unplayedTeams = await widthOf(rowChildren(unplayedCard).nth(2));
+    expect(Math.round(unplayedTeams - playedTeams)).toBe(RESERVED_WIDTH_XS + ROW_GAP);
   });
 });
