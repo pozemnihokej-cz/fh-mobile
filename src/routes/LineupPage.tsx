@@ -7,7 +7,7 @@ import { AsyncBoundary } from '../components/AsyncBoundary';
 import { FanListSkeleton } from '../components/FanListSkeleton';
 import { useAsyncData } from '../lib/useAsyncData';
 import { supabase } from '../lib/supabase';
-import { fetchLineup, type LineupPlayer } from '../lib/adapters/lineup';
+import { fetchLineup, isGuestSide, type LineupPlayer } from '../lib/adapters/lineup';
 import { toImageUrl } from '../lib/runtimeUrls';
 import { formatPositionCz } from '../lib/playerUtils';
 import { PlayerDetailModal } from '../components/PlayerDetailModal';
@@ -34,10 +34,14 @@ export default function LineupPage(): JSX.Element {
   const isEmpty = lineup.home.length === 0 && lineup.guest.length === 0;
 
   const currentPlayers = selectedSide === 'home' ? lineup.home : lineup.guest;
+  const fieldPlayers = currentPlayers.filter((p) => !p.isCoach);
+  const coaches = currentPlayers.filter((p) => p.isCoach);
 
   const renderPlayer = (p: LineupPlayer): JSX.Element => {
     const positionLabel = formatPositionCz(p.position, p.isCoach);
     const imageUrl = toImageUrl(p.image);
+    const isGuest = isGuestSide(p.side);
+    const accent = isGuest ? theme.palette.info.main : theme.palette.primary.main;
 
     return (
       <Box
@@ -66,7 +70,7 @@ export default function LineupPage(): JSX.Element {
           transition: 'all 0.15s ease',
           '&:hover': {
             bgcolor: alpha(white, 0.08),
-            borderColor: alpha(theme.palette.primary.main, 0.35),
+            borderColor: alpha(accent, 0.35),
             transform: 'translateX(2px)',
           },
           ...focusRing(theme),
@@ -95,22 +99,22 @@ export default function LineupPage(): JSX.Element {
           )}
         </Avatar>
 
-        {/* Jersey number */}
-        {p.jersey && (
-          <Typography
-            sx={{
-              ...typeScale.bodyStrong,
-              fontSize: '0.82rem',
-              fontVariantNumeric: 'tabular-nums',
-              fontWeight: 900,
-              color: alpha(white, 0.6),
-              minWidth: 20,
-              textAlign: 'center',
-            }}
-          >
-            {p.jersey}
-          </Typography>
-        )}
+        {/* Jersey number slot — always reserve space so names never jump left when player has no number */}
+        <Typography
+          sx={{
+            ...typeScale.bodyStrong,
+            fontSize: '0.82rem',
+            fontVariantNumeric: 'tabular-nums',
+            fontWeight: 900,
+            color: alpha(white, 0.6),
+            minWidth: 24,
+            textAlign: 'center',
+            flexShrink: 0,
+            userSelect: 'none',
+          }}
+        >
+          {p.isCoach ? '' : p.jersey || ''}
+        </Typography>
 
         {/* Player Name */}
         <Typography
@@ -137,9 +141,9 @@ export default function LineupPage(): JSX.Element {
                 height: 20,
                 fontSize: '0.62rem',
                 fontWeight: 900,
-                bgcolor: alpha(theme.palette.primary.main, 0.2),
-                color: 'primary.main',
-                border: `1px solid ${alpha(theme.palette.primary.main, 0.4)}`,
+                bgcolor: alpha(accent, 0.2),
+                color: accent,
+                border: `1px solid ${alpha(accent, 0.4)}`,
                 '& .MuiChip-label': { px: 0.75 },
               }}
             />
@@ -236,9 +240,9 @@ export default function LineupPage(): JSX.Element {
               sx={{
                 py: 0.75,
                 borderRadius: '10px',
-                bgcolor: selectedSide === 'guest' ? alpha(theme.palette.primary.main, 0.25) : 'transparent',
-                color: selectedSide === 'guest' ? 'primary.main' : alpha(white, 0.75),
-                border: selectedSide === 'guest' ? `1px solid ${alpha(theme.palette.primary.main, 0.4)}` : '1px solid transparent',
+                bgcolor: selectedSide === 'guest' ? alpha(theme.palette.info.main, 0.25) : 'transparent',
+                color: selectedSide === 'guest' ? theme.palette.info.main : alpha(white, 0.75),
+                border: selectedSide === 'guest' ? `1px solid ${alpha(theme.palette.info.main, 0.4)}` : '1px solid transparent',
                 fontWeight: 800,
                 fontSize: '0.82rem',
                 textTransform: 'none',
@@ -251,14 +255,45 @@ export default function LineupPage(): JSX.Element {
           </Box>
 
           <Box sx={{ px: 0.25 }}>
-            {currentPlayers.length > 0 ? (
+            {fieldPlayers.length > 0 ? (
               <Stack spacing={0.75}>
-                {currentPlayers.map((p) => renderPlayer(p))}
+                {fieldPlayers.map((p) => renderPlayer(p))}
               </Stack>
             ) : (
               <Typography sx={{ textAlign: 'center', color: 'text.secondary', py: 3, fontSize: '0.85rem' }}>
                 Žádní hráči v této sestavě
               </Typography>
+            )}
+
+            {coaches.length > 0 && (
+              <Box sx={{ mt: 2.5 }}>
+                <Box
+                  sx={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 1,
+                    mb: 1,
+                    px: 0.5,
+                  }}
+                >
+                  <Typography
+                    variant="caption"
+                    sx={{
+                      fontWeight: 900,
+                      fontSize: '0.72rem',
+                      color: alpha(white, 0.6),
+                      letterSpacing: '0.08em',
+                      textTransform: 'uppercase',
+                    }}
+                  >
+                    {coaches.length === 1 ? 'Trenér' : 'Realizační tým / Trenéři'}
+                  </Typography>
+                  <Box sx={{ flex: 1, height: '1px', bgcolor: alpha(white, 0.08) }} />
+                </Box>
+                <Stack spacing={0.75}>
+                  {coaches.map((c) => renderPlayer(c))}
+                </Stack>
+              </Box>
             )}
           </Box>
         </AsyncBoundary>
@@ -268,7 +303,7 @@ export default function LineupPage(): JSX.Element {
       <PlayerDetailModal
         player={selectedPlayerModal}
         teamName={
-          selectedPlayerModal?.side === 'guest'
+          isGuestSide(selectedPlayerModal?.side)
             ? t('mobile.fan.lineup.guest')
             : t('mobile.fan.lineup.home')
         }

@@ -1,3 +1,4 @@
+import { useState, useEffect } from 'react';
 import {
   Dialog,
   Box,
@@ -12,7 +13,7 @@ import {
 import { FhIcon, focusRing } from '@fh/ui';
 import { toImageUrl } from '../lib/runtimeUrls';
 import { formatPositionCz } from '../lib/playerUtils';
-import type { LineupPlayer } from '../lib/adapters/lineup';
+import { isGuestSide, type LineupPlayer } from '../lib/adapters/lineup';
 
 export interface PlayerDetailModalProps {
   player: LineupPlayer | null;
@@ -28,12 +29,17 @@ export function PlayerDetailModal({
   onClose,
 }: PlayerDetailModalProps): JSX.Element | null {
   const theme = useTheme();
+  const [imageError, setImageError] = useState(false);
+
+  useEffect(() => {
+    setImageError(false);
+  }, [player?.id, player?.image]);
 
   if (!player) return null;
 
   const positionLabel = formatPositionCz(player.position, player.isCoach);
   const imageUrl = toImageUrl(player.image);
-  const isGuest = player.side === 'guest';
+  const isGuest = isGuestSide(player.side);
   const accentColor = isGuest ? theme.palette.info.main : theme.palette.primary.main;
 
   return (
@@ -86,29 +92,62 @@ export function PlayerDetailModal({
           <FhIcon name="close" sx={{ fontSize: '1.25rem' }} />
         </IconButton>
 
-        {/* Large Avatar / Photo */}
-        <Avatar
-          src={imageUrl || undefined}
-          alt={player.name}
-          sx={{
-            width: 128,
-            height: 128,
-            mx: 'auto',
-            mb: 2.5,
-            bgcolor: alpha(theme.palette.common.white, 0.08),
-            color: accentColor,
-            fontSize: '3rem',
-            fontWeight: 900,
-            border: `3px solid ${alpha(accentColor, 0.4)}`,
-            boxShadow: `0 12px 32px ${alpha(theme.palette.common.black, 0.5)}`,
-          }}
-        >
-          {player.jersey ? (
-            player.jersey
-          ) : (
-            <FhIcon name="roster" sx={{ fontSize: '3.5rem', color: alpha(theme.palette.common.white, 0.5) }} />
-          )}
-        </Avatar>
+        {/* Player Photo (rounded portrait card) or fallback Avatar */}
+        {imageUrl && !imageError ? (
+          <Box
+            sx={{
+              width: 136,
+              height: 168,
+              mx: 'auto',
+              mb: 2.5,
+              borderRadius: '18px',
+              overflow: 'hidden',
+              bgcolor: alpha(theme.palette.common.white, 0.06),
+              border: `1px solid ${alpha(theme.palette.common.white, 0.14)}`,
+              boxShadow: `0 12px 32px ${alpha(theme.palette.common.black, 0.5)}`,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+          >
+            <Box
+              component="img"
+              src={imageUrl}
+              alt={player.name}
+              onError={() => setImageError(true)}
+              sx={{
+                width: '100%',
+                height: '100%',
+                objectFit: 'cover',
+                objectPosition: 'center 20%',
+                display: 'block',
+              }}
+            />
+          </Box>
+        ) : (
+          <Avatar
+            variant="rounded"
+            sx={{
+              width: 136,
+              height: 168,
+              borderRadius: '18px',
+              mx: 'auto',
+              mb: 2.5,
+              bgcolor: alpha(theme.palette.common.white, 0.08),
+              color: accentColor,
+              fontSize: '3rem',
+              fontWeight: 900,
+              border: `1px solid ${alpha(theme.palette.common.white, 0.14)}`,
+              boxShadow: `0 12px 32px ${alpha(theme.palette.common.black, 0.5)}`,
+            }}
+          >
+            {player.jersey ? (
+              player.jersey
+            ) : (
+              <FhIcon name="roster" sx={{ fontSize: '3.5rem', color: alpha(theme.palette.common.white, 0.5) }} />
+            )}
+          </Avatar>
+        )}
 
         {/* Jersey Number Tag */}
         {player.jersey && (
@@ -184,9 +223,9 @@ export function PlayerDetailModal({
                 height: 24,
                 fontWeight: 800,
                 fontSize: '0.72rem',
-                bgcolor: alpha(theme.palette.primary.main, 0.2),
-                color: 'primary.main',
-                border: `1px solid ${alpha(theme.palette.primary.main, 0.4)}`,
+                bgcolor: alpha(accentColor, 0.2),
+                color: accentColor,
+                border: `1px solid ${alpha(accentColor, 0.4)}`,
               }}
             />
           )}

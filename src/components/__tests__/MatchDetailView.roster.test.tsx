@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { ThemeProvider, createTheme } from '@mui/material/styles';
 import { MatchDetailView } from '../MatchDetailView';
@@ -122,8 +122,14 @@ describe('MatchDetailView roster and player detail modal', () => {
 
     // Modal displays player name, jersey number, team, and Czech position
     expect(screen.getByText('#1')).toBeInTheDocument();
-    expect(screen.getByText('Slavia Praha')).toBeInTheDocument();
+    expect(screen.getByText('SK Slavia')).toBeInTheDocument();
     expect(screen.getByText('Kapitán (C)')).toBeInTheDocument();
+
+    // Verify photo card renders with rounded corners
+    const photoImg = modal.querySelector('img[alt="Jan Novák"]');
+    expect(photoImg).toBeInTheDocument();
+    const avatarContainer = photoImg?.parentElement as HTMLElement;
+    expect(avatarContainer).toHaveStyle({ border: '1px solid rgba(255, 255, 255, 0.14)' });
 
     // Close modal
     const closeBtn = screen.getByLabelText('Zavřít detail hráče');
@@ -132,5 +138,66 @@ describe('MatchDetailView roster and player detail modal', () => {
     await waitFor(() => {
       expect(screen.queryByTestId('player-detail-modal')).not.toBeInTheDocument();
     });
+  });
+
+  it('renders guest team roster, and opens guest player modal with guest team metadata and frameless avatar', async () => {
+    // Give guest player an image and captaincy to test full presentation
+    queryState.roster = [
+      ...testRoster.slice(0, 1),
+      {
+        id: 'p2',
+        name: 'Petr Svoboda',
+        jerseyNumber: '10',
+        position: 'FW',
+        role: 'captain',
+        side: 'away',
+        image: 'https://images.example.com/petr.jpg',
+      },
+    ];
+
+    render(
+      <MemoryRouter>
+        <ThemeProvider theme={createTheme()}>
+          <MatchDetailView matchId="match-123" starred={false} onToggleStar={vi.fn()} />
+        </ThemeProvider>
+      </MemoryRouter>,
+    );
+
+    // Switch to roster tab
+    const rosterTab = screen.getByRole('button', { name: /soupisky/i });
+    fireEvent.click(rosterTab);
+
+    // Click Guest tab button (Bohemians Praha / TJ Bohemians)
+    const guestTabBtn = screen.getByRole('button', { name: /bohemians/i });
+    fireEvent.click(guestTabBtn);
+
+    // Check guest player is visible
+    await waitFor(() => {
+      expect(screen.getByText('Petr Svoboda')).toBeInTheDocument();
+    });
+
+    // Check roster row retains 1px solid border
+    const guestPlayerRow = screen.getByTestId('lineup-player');
+    const rosterAvatar = guestPlayerRow.querySelector('.MuiAvatar-root');
+    expect(rosterAvatar).toBeInTheDocument();
+    expect(rosterAvatar).toHaveStyle({ border: '1px solid rgba(255, 255, 255, 0.12)' });
+
+    // Click guest player row to open modal
+    fireEvent.click(guestPlayerRow);
+
+    // Modal opens
+    const modal = await screen.findByTestId('player-detail-modal');
+    expect(modal).toBeInTheDocument();
+
+    // Modal displays guest team name (TJ Bohemians) and #10
+    expect(within(modal).getByText('#10')).toBeInTheDocument();
+    expect(within(modal).getByText('TJ Bohemians')).toBeInTheDocument();
+    expect(within(modal).getByText('Petr Svoboda')).toBeInTheDocument();
+
+    // Modal photo renders with card border
+    const photoImg = modal.querySelector('img[alt="Petr Svoboda"]');
+    expect(photoImg).toBeInTheDocument();
+    const avatarContainer = photoImg?.parentElement as HTMLElement;
+    expect(avatarContainer).toHaveStyle({ border: '1px solid rgba(255, 255, 255, 0.14)' });
   });
 });

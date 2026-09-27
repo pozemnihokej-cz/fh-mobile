@@ -7,6 +7,7 @@ import { StickyGlassHeader, FhIcon, focusRing } from '@fh/ui';
 import { isMatchGenuinelyLive } from '@fh/schema';
 import { MatchDetailView } from '../components/MatchDetailView';
 import { useFanPreferences } from '../lib/useFanPreferences';
+import { resolveDisplayTeamNames } from '../lib/teamNames';
 
 /**
  * CHANGE-055 Spec-AC-07: `/<slug>/matches/<matchId>` direct deep link.
@@ -55,8 +56,7 @@ export default function MatchDetailPage(): JSX.Element {
     : false;
 
   const isPlayedOrLive = match ? isLive || match.status === 'completed' || match.status === 'in_progress' : false;
-  const homeName = match?.homeTeamName || match?.homeClubName || 'Domácí';
-  const awayName = match?.awayTeamName || match?.awayClubName || 'Hosté';
+  const { home: homeName, away: awayName } = resolveDisplayTeamNames(match);
   const hasScore = match && (match.homeScore != null || match.awayScore != null);
   const scoreStr = hasScore ? `${match.homeScore ?? 0} : ${match.awayScore ?? 0}` : '0 : 0';
 
