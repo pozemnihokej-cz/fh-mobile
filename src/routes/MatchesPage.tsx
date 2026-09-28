@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect, useRef } from 'react';
+import { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useQuery } from 'convex/react';
 import { api } from '@convex/_generated/api';
@@ -16,6 +16,12 @@ import {
   useTheme,
 } from '@mui/material';
 import { StickyGlassHeader, EmptyState, MatchCardSkeleton, FhIcon, focusRing } from '@fh/ui';
+import {
+  canRevealEarlier,
+  matchListFromDate,
+  MATCH_LIST_DEFAULT_PAST_DAYS,
+  MATCH_LIST_WIDEN_STEP_DAYS,
+} from '@fh/schema';
 import { MatchCard, type MatchCardData } from '../components/MatchCard';
 import { AsyncBoundary } from '../components/AsyncBoundary';
 import { useTenantContext } from './TenantContext';
@@ -66,11 +72,6 @@ export default function MatchesPage(): JSX.Element {
   const navigate = useNavigate();
   const theme = useTheme();
 
-  const matches = useQuery(
-    api.functions.matches.list,
-    tenantId ? { tenantId } : 'skip',
-  );
-
   const venues = useQuery(
     api.functions.venues.list,
     tenantId ? { tenantId } : 'skip',
@@ -88,10 +89,6 @@ export default function MatchesPage(): JSX.Element {
     }));
   }, [venues]);
 
-  const { nearestVenueName, nearbyVenues, status: geoStatus } = useNearestVenue(visibleVenues, {
-    matches: matches as any,
-  });
-
   // Session storage state persistence — remembers revealed days & scroll position
   // so opening a match detail and navigating Back keeps the user in place.
   const sessionKey = `fh.matches.${tenantId || 'default'}.state`;
@@ -104,12 +101,47 @@ export default function MatchesPage(): JSX.Element {
     }
   }, [sessionKey]);
 
+  /**
+   * spec-matches-list-bounded-window: the list no longer asks for the tenant's
+   * whole mirrored history. It asks for a FLOOR — the last `pastWindowDays`
+   * days and everything after them — and the floor is pushed further back when
+   * the reader walks off the end of it, so nothing that was reachable before
+   * stops being reachable.
+   *
+   * No ceiling: the future is bounded by the scheduling horizon, and every
+   * forward "show more" step must keep working without a refetch.
+   */
+  const [pastWindowDays, setPastWindowDays] = useState<number>(
+    savedState?.pastWindowDays ?? MATCH_LIST_DEFAULT_PAST_DAYS,
+  );
+  const todayAnchor = useMemo(() => startOfDay(Date.now()), []);
+  const fromDate = useMemo(
+    () => matchListFromDate(todayAnchor, pastWindowDays),
+    [todayAnchor, pastWindowDays],
+  );
+
+  const matches = useQuery(
+    api.functions.matches.list,
+    tenantId ? { tenantId, fromDate } : 'skip',
+  );
+
+  /** The tenant's oldest mirrored match — decides whether another step back
+   *  into the past can still yield anything. */
+  const earliestDate = useQuery(
+    api.functions.matches.earliestDate,
+    tenantId ? { tenantId } : 'skip',
+  );
+
   // Independent filtering & pagination state — initialized from saved session if available
   const [selectedVenue, setSelectedVenue] = useState<string>(savedState?.selectedVenue ?? 'all');
   const [selectedLeague, setSelectedLeague] = useState<string>(savedState?.selectedLeague ?? 'all');
   const [selectedTeam, setSelectedTeam] = useState<string>(savedState?.selectedTeam ?? 'all');
   const [daysBack, setDaysBack] = useState<number>(savedState?.daysBack ?? 0);
   const [daysForward, setDaysForward] = useState<number>(savedState?.daysForward ?? 7);
+
+  const { nearestVenueName, nearbyVenues, status: geoStatus } = useNearestVenue(visibleVenues, {
+    matches: matches as any,
+  });
 
   // Persist pagination & filter state to session storage
   useEffect(() => {
@@ -125,12 +157,13 @@ export default function MatchesPage(): JSX.Element {
           selectedTeam,
           daysBack,
           daysForward,
+          pastWindowDays,
         }),
       );
     } catch {
       // sessionStorage unavailable
     }
-  }, [sessionKey, selectedVenue, selectedLeague, selectedTeam, daysBack, daysForward]);
+  }, [sessionKey, selectedVenue, selectedLeague, selectedTeam, daysBack, daysForward, pastWindowDays]);
 
   // Track window scroll continuously
   useEffect(() => {
@@ -318,6 +351,21 @@ export default function MatchesPage(): JSX.Element {
       totalCount: filteredMatches.length,
     };
   }, [filteredMatches, daysBack, daysForward]);
+
+  /**
+   * One step further into the past. While the fetched window still holds an
+   * unrevealed day this only reveals it — the behaviour the page always had.
+   * Once the window is exhausted the FLOOR moves back too, so the archive stays
+   * walkable instead of ending wherever the first fetch happened to stop; the
+   * refetch brings the next slice of the archive and the extra `daysBack` step
+   * reveals its most recent day.
+   */
+  const revealEarlier = useCallback(() => {
+    setDaysBack((prev) => prev + 1);
+    if (timeline.nextPastDayKey === null) {
+      setPastWindowDays((prev) => prev + MATCH_LIST_WIDEN_STEP_DAYS);
+    }
+  }, [timeline.nextPastDayKey]);
 
   // Restore scroll position when returning from match detail
   const didRestoreScroll = useRef(false);
@@ -771,14 +819,14 @@ export default function MatchesPage(): JSX.Element {
         >
           <Box>
             {/* Pull in / reveal previous past day button */}
-            {timeline.nextPastDayKey !== null && (
+            {canRevealEarlier(timeline.nextPastDayKey, fromDate, earliestDate) && (
               <Box
                 data-testid="match-list-pull-previous"
-                onClick={() => setDaysBack((prev) => prev + 1)}
+                onClick={revealEarlier}
                 role="button"
                 tabIndex={0}
                 onKeyDown={(e) => {
-                  if (e.key === 'Enter' || e.key === ' ') setDaysBack((prev) => prev + 1);
+                  if (e.key === 'Enter' || e.key === ' ') revealEarlier();
                 }}
                 sx={{
                   display: 'flex',

@@ -9,6 +9,8 @@ import MatchesPage from '../MatchesPage';
 const queryData = vi.hoisted(() => ({
   matches: undefined as any,
   venues: [] as any,
+  /** spec-matches-list-bounded-window: the tenant's oldest mirrored match. */
+  earliestDate: null as number | null,
 }));
 
 const geoMockData = vi.hoisted(() => ({
@@ -17,14 +19,30 @@ const geoMockData = vi.hoisted(() => ({
   status: 'found' as string,
 }));
 
-let callIdx = 0;
-vi.mock('convex/react', () => ({
-  useQuery: vi.fn(() => {
-    callIdx += 1;
-    // 1st call is matches, 2nd call is venues
-    return (callIdx % 2 === 1) ? queryData.matches : queryData.venues;
-  }),
-}));
+/**
+ * spec-matches-list-bounded-window: this used to answer by CALL ORDER — "1st
+ * call is matches, 2nd is venues". Adding a third query to the page silently
+ * handed the venue list to the match list. The mock now answers by the udf path
+ * the client would put on the wire, so the order the page happens to declare
+ * its hooks in is no longer part of the contract.
+ */
+vi.mock('convex/react', async () => {
+  const { getFunctionName } = await vi.importActual<typeof import('convex/server')>('convex/server');
+  return {
+    useQuery: vi.fn((ref: unknown) => {
+      switch (getFunctionName(ref as never)) {
+        case 'functions/matches:list':
+          return queryData.matches;
+        case 'functions/venues:list':
+          return queryData.venues;
+        case 'functions/matches:earliestDate':
+          return queryData.earliestDate;
+        default:
+          return undefined;
+      }
+    }),
+  };
+});
 
 vi.mock('../TenantContext', () => ({
   useTenantContext: () => ({ tenantId: 'tenant-1', tenantName: 'ČSPH' }),
@@ -47,8 +65,8 @@ vi.mock('../../hooks/useNearestVenue', () => ({
 
 afterEach(cleanup);
 beforeEach(() => {
-  callIdx = 0;
   sessionStorage.clear();
+  queryData.earliestDate = null;
   geoMockData.nearestVenueName = 'Hřiště Eden';
   geoMockData.nearbyVenues = [{ name: 'Hřiště Eden', km: 0.1, isHall: false }];
   geoMockData.status = 'found';

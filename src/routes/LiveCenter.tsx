@@ -1,7 +1,11 @@
 import { useMemo, useEffect } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useQuery } from 'convex/react';
-import { isMatchGenuinelyLive } from '@fh/schema';
+import {
+  isMatchGenuinelyLive,
+  MATCH_LIST_DEFAULT_PAST_DAYS,
+  matchListFromDate,
+} from '@fh/schema';
 import { api } from '@convex/_generated/api';
 import { Box, Container, Button, alpha, useTheme } from '@mui/material';
 import { StickyGlassHeader, EmptyState, MatchCardSkeleton, FhIcon, focusRing } from '@fh/ui';
@@ -9,6 +13,12 @@ import { MatchCard, type MatchCardData } from '../components/MatchCard';
 import { AsyncBoundary } from '../components/AsyncBoundary';
 import { useTenantContext } from './TenantContext';
 import { useFanPreferences } from '../lib/useFanPreferences';
+
+function startOfDay(ts: number): number {
+  const d = new Date(ts);
+  d.setHours(0, 0, 0, 0);
+  return d.getTime();
+}
 
 /**
  * PRD-055 Phase 2 (Spec-AC-04/05): the live-centre at `/<slug>/live`. Reuses the
@@ -20,7 +30,26 @@ export default function LiveCenter(): JSX.Element {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const theme = useTheme();
-  const matches = useQuery(api.functions.matches.list, tenantId ? { tenantId } : 'skip');
+  /**
+   * spec-matches-list-bounded-window: the SAME default window the match list
+   * sends, deliberately — not a tighter live-only one.
+   *
+   * `isMatchGenuinelyLive` keys on the ACTUAL kickoff (`startedAt`) within a
+   * three-hour window, but the only column an index can bound is the SCHEDULED
+   * date. Measured on the live mirror, 3 of 134 started matches have
+   * `|startedAt - date| > 24 h`, the largest 505.7 h — so a tight window on the
+   * scheduled date would have hidden genuinely live matches from this page.
+   * Sending identical arguments also keeps this page and the match list sharing
+   * one Convex query-cache entry, as they did before the window existed.
+   */
+  const fromDate = useMemo(
+    () => matchListFromDate(startOfDay(Date.now()), MATCH_LIST_DEFAULT_PAST_DAYS),
+    [],
+  );
+  const matches = useQuery(
+    api.functions.matches.list,
+    tenantId ? { tenantId, fromDate } : 'skip',
+  );
   const { isMatchSaved, toggleMatch } = useFanPreferences();
 
   const directId = searchParams.get('matchId') || searchParams.get('id') || searchParams.get('externalId');
