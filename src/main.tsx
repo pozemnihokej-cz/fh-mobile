@@ -17,6 +17,7 @@ import TenantLayout from './routes/TenantLayout';
 import MatchesPage from './routes/MatchesPage';
 import MatchDetailPage from './routes/MatchDetailPage';
 import DirectMatchRedirect from './routes/DirectMatchRedirect';
+import ExternalMatchRedirect from './routes/ExternalMatchRedirect';
 import LiveCenter from './routes/LiveCenter';
 import StandingsPage from './routes/StandingsPage';
 import SchedulePage from './routes/SchedulePage';
@@ -158,6 +159,19 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
                       element={
                         <QueryErrorBoundary errorTitle="Živé zápasy se nepodařilo načíst" errorDescription="Zkontroluj připojení a zkus to znovu." retryLabel="Zkusit znovu">
                           <LiveCenter />
+                        </QueryErrorBoundary>
+                      }
+                    />
+                    {/* spec-fan-match-external-id-redirect: public external-id entry
+                       point. Declared BEFORE matches/:matchId/lineup on purpose — both
+                       score equally in React Router v6 (2 static + 1 dynamic segment
+                       each), so for the degenerate /matches/external/lineup URL the
+                       EARLIER-declared branch wins the tie (TEST-012). */}
+                    <Route
+                      path="matches/external/:externalId"
+                      element={
+                        <QueryErrorBoundary errorTitle="Zápas se nepodařilo načíst" errorDescription="Zkontroluj připojení a zkus to znovu." retryLabel="Zkusit znovu">
+                          <ExternalMatchRedirect />
                         </QueryErrorBoundary>
                       }
                     />
