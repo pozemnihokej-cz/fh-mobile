@@ -113,7 +113,7 @@ export default function TenantPickerPage(): JSX.Element {
               mb: 1,
             }}
           >
-            FH FANZONE
+            Sport Live
           </Typography>
           <Typography variant="body2" sx={{ color: 'text.secondary', fontWeight: 600, letterSpacing: '0.1em', textTransform: 'uppercase' }}>
             {t('mobile.routing.picker.title')}
