@@ -99,8 +99,12 @@ export function MatchDetailView({
     }
     return lineupData ?? { home: [], guest: [], referees: [] };
   }, [hasConvexRoster, convexRoster, lineupData]);
-  // The roster is known once Convex delivered rows or the fallback fetch settled.
-  const rosterResolved = hasConvexRoster || !lineupLoading;
+  // The roster is known once Convex delivered rows, the fallback returned rows,
+  // or BOTH sources have answered. A fallback that settles empty while the
+  // Convex subscription is still connecting proves nothing yet.
+  const fallbackHasRoster =
+    !!lineupData && lineupData.home.length + lineupData.guest.length + lineupData.referees.length > 0;
+  const rosterResolved = hasConvexRoster || fallbackHasRoster || (convexRoster !== undefined && !lineupLoading);
   const homeCount = formatRosterCount(lineup.home);
   const guestCount = formatRosterCount(lineup.guest);
   const currentPlayers = rosterSide === 'home' ? lineup.home : lineup.guest;
@@ -182,6 +186,9 @@ export function MatchDetailView({
   // green LIVE stage (the tenant primary does not: 1.01:1 measured), the fill
   // itself separates active from inactive, and the white focus ring shows on
   // the stage where the primary-coloured default ring does not.
+  // Hover keeps the resting fill: any white wash under the white inactive label
+  // drops it below 4.5:1 on the brightest stage stop (alpha 0.1 measured 4.17:1),
+  // so an inactive tab signals hover with its border only.
   const matchTabSx = (active: boolean) => ({
     minHeight: 44, minWidth: 44,
     py: 0.8,
@@ -193,9 +200,7 @@ export function MatchDetailView({
     fontSize: '0.82rem',
     textTransform: 'none',
     transition: 'all 0.15s ease',
-    '&:hover': {
-      bgcolor: active ? theme.palette.common.white : alpha(theme.palette.common.white, 0.1),
-    },
+    '&:hover': { bgcolor: active ? theme.palette.common.white : 'transparent', borderColor: active ? theme.palette.common.white : alpha(theme.palette.common.white, 0.6) },
     '&:focus-visible, &.Mui-focusVisible': {
       outline: `3px solid ${theme.palette.common.white}`,
       outlineOffset: '2px',
@@ -518,6 +523,7 @@ export function MatchDetailView({
             key={tab.id}
             fullWidth
             aria-pressed={tunnelTab === tab.id}
+            disableRipple
             onClick={() => handleTabChange(tab.id)}
             sx={{ ...focusRing(theme), ...matchTabSx(tunnelTab === tab.id) }}
           >

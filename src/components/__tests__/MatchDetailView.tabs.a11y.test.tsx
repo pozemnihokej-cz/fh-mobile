@@ -234,3 +234,72 @@ describe('TEST-006 touch target and visible focus (Spec-AC-05)', () => {
     expect(failures).toEqual([]);
   });
 });
+
+/**
+ * The value a pseudo-state rule of this element's emotion class declares for
+ * `prop`, last rule wins (emotion emits the component's own rule first and the
+ * sx override after it). Media-wrapped rules are skipped: they only apply on
+ * hover-less devices, where there is no hover state to render.
+ */
+function stateDecl(el: HTMLElement, suffixes: string[], prop: string): string | null {
+  const classes = [...el.classList].filter((c) => c.startsWith('css-'));
+  let found: string | null = null;
+  for (const sheet of [...document.styleSheets]) {
+    let rules: CSSRuleList;
+    try {
+      rules = sheet.cssRules;
+    } catch {
+      continue;
+    }
+    for (const rule of [...rules]) {
+      const sel = (rule as CSSStyleRule).selectorText;
+      if (!sel) continue;
+      const parts = sel.split(',').map((p) => p.trim());
+      if (!parts.some((p) => classes.some((c) => suffixes.some((sfx) => p === `.${c}${sfx}`)))) continue;
+      const v = (rule as CSSStyleRule).style.getPropertyValue(prop);
+      if (v) found = v;
+    }
+  }
+  return found;
+}
+
+describe('TEST-012 hover and focus-visible states keep AA contrast (Spec-AC-04)', () => {
+  const STATES: Array<{ name: string; suffixes: string[] }> = [
+    { name: 'hover', suffixes: [':hover'] },
+    { name: 'focus-visible', suffixes: [':focus-visible', '.Mui-focusVisible'] },
+  ];
+
+  for (const slug of Object.keys(TENANT_THEMES)) {
+    it(`TEST-012 every tab in hover and focus-visible, active and inactive, meets 4.5:1 on all stage stops, tenant ${slug}`, () => {
+      renderWithTenant(slug);
+      const bar = screen.getByTestId('match-detail-tabs');
+      const track = parseColor(getComputedStyle(bar).backgroundColor);
+      const failures: string[] = [];
+      for (let activeIdx = 0; activeIdx < TABS.length; activeIdx++) {
+        fireEvent.click(tabButtons()[activeIdx]);
+        tabButtons().forEach((btn, i) => {
+          const role = i === activeIdx ? 'active' : 'inactive';
+          // A ripple paints a translucent currentColor layer under the label,
+          // which no stylesheet rule shows: the tabs must not carry one. MUI
+          // mounts it lazily, so press the tab first.
+          fireEvent.mouseDown(btn);
+          fireEvent.mouseUp(btn);
+          if (btn.querySelector('.MuiTouchRipple-root')) failures.push(`${slug} tab ${i} ${role}: ripple layer present`);
+          const cs = getComputedStyle(btn);
+          for (const st of STATES) {
+            const fill = parseColor(stateDecl(btn, st.suffixes, 'background-color') ?? cs.backgroundColor);
+            const text = parseColor(stateDecl(btn, st.suffixes, 'color') ?? cs.color);
+            for (const stage of stageBackgrounds()) {
+              const fillRgb = over(fill, over(track, stage));
+              const ratio = contrast(over(text, fillRgb), fillRgb);
+              if (ratio < 4.5) failures.push(`${slug} tab ${i} ${role} ${st.name} label ${ratio.toFixed(2)}`);
+            }
+          }
+        });
+      }
+      expect(failures).toEqual([]);
+      cleanup();
+    });
+  }
+});
+

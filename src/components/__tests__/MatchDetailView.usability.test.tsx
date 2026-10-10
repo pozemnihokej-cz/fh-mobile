@@ -267,3 +267,53 @@ describe('TEST-010 no new reads, nothing but name and photo (Spec-AC-09)', () =>
     expect(section.innerHTML).not.toMatch(/hasPin|userPin|0000|lineup/);
   });
 });
+
+describe('TEST-013 a connecting Convex subscription is not an empty roster (Spec-AC-08)', () => {
+  it('TEST-013 Convex pending while the fallback settles empty: loading text, no empty state, no counts; empty state once Convex answers []', async () => {
+    convexFake.rosterResult = undefined;
+    const view = renderView();
+    openTab(/přehled/i);
+    await waitFor(() => expect(fetchLineupSpy.calls.length).toBe(1));
+    // Let fetchLineup run all three fallbacks to its empty result.
+    await new Promise((r) => setTimeout(r, 30));
+    const section = screen.getByTestId('match-referees');
+    expect(within(section).getByText('Načítám rozhodčí…')).toBeInTheDocument();
+    expect(within(section).queryByText('Rozhodčí zatím nebyli zveřejněni.')).toBeNull();
+    openTab(/soupisky/i);
+    expect(screen.getByTestId('roster-side-home').textContent).not.toMatch(/\(\d/);
+    expect(screen.getByTestId('roster-side-guest').textContent).not.toMatch(/\(\d/);
+
+    // The subscription answers: an empty roster IS now known to be empty.
+    convexFake.rosterResult = [];
+    view.rerender(
+      <MemoryRouter>
+        <ThemeProvider theme={theme}>
+          <MatchDetailView matchId={MATCH_ID} starred={false} onToggleStar={vi.fn()} />
+        </ThemeProvider>
+      </MemoryRouter>,
+    );
+    openTab(/přehled/i);
+    expect(within(screen.getByTestId('match-referees')).getByText('Rozhodčí zatím nebyli zveřejněni.')).toBeInTheDocument();
+  });
+});
+
+describe('TEST-014 legacy referee photo paths are rewritten (Spec-AC-07)', () => {
+  it('TEST-014 a /storage/v1/photos/ referee photo renders from the assets bucket', async () => {
+    const rows = [
+      ...mirroredRoster(MATCH_ID),
+      { matchId: MATCH_ID, name: 'Rozhodčí Delta', side: 'neutral', status: 'lineup', role: 'referee', image: '/storage/v1/photos/csph/persons/referee-delta.jpg', userPin: '0000' },
+    ];
+    convexFake.rosterResult = await runRosterList(rows, MATCH_ID);
+    renderView();
+    openTab(/přehled/i);
+    const row = within(screen.getByTestId('match-referees'))
+      .getAllByTestId('referee-row')
+      .find((r) => r.textContent?.includes('Rozhodčí Delta'))!;
+    await waitFor(() => {
+      const img = row.querySelector('img');
+      expect(img).not.toBeNull();
+      expect(img!.getAttribute('src')).toBe('/storage/v1/object/public/assets/csph/persons/referee-delta.jpg');
+    });
+  });
+});
+

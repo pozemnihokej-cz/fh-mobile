@@ -57,8 +57,15 @@ function isPlayerRow(row: MatchPlayerRow): boolean {
   return isGoalkeeper({ role: r });
 }
 
+/**
+ * Match-official roles. `official` is the same dialect OM (useRoster.ts,
+ * MatchSettingsPage.tsx), fh-evidence (MatchDetailPage.tsx) and Convex
+ * (_matchReadiness.ts) already read as a referee.
+ */
+const REFEREE_ROLES = new Set(['referee', 'official']);
+
 export function isRefereeRow(row: MatchPlayerRow): boolean {
-  return normRole(row.role) === 'referee';
+  return REFEREE_ROLES.has(normRole(row.role));
 }
 
 export interface RosterCount {
@@ -132,15 +139,18 @@ export function groupLineup(rows: MatchPlayerRow[]): Lineup {
   const seenReferees = new Set<string>();
   for (const r of rows) {
     if (isRefereeRow(r)) {
-      // The same person delegated twice arrives as two rows; show them once.
+      // A nameless row has no identity to show, so it is dropped rather than
+      // merged with other nameless rows into one blank entry. The same person
+      // delegated twice arrives as two rows; show them once.
       const key = (r.name ?? '').trim().toLowerCase();
+      if (!key) continue;
       if (!seenReferees.has(key)) {
         seenReferees.add(key);
         referees.push(toPlayer(r));
       }
       continue;
     }
-    if (r.role === 'Official' || r.side === 'neutral') continue;
+    if (r.side === 'neutral') continue;
     const player = toPlayer(r);
     if (isGuestSide(r.side)) {
       guest.push(player);

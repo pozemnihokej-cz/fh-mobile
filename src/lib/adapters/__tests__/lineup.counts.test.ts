@@ -86,3 +86,36 @@ describe('TEST-002 referees extracted from the roster (Spec-AC-07)', () => {
     expect(groupLineup(players(3)).referees).toEqual([]);
   });
 });
+
+describe('TEST-015 official is a referee role, any case (Spec-AC-11)', () => {
+  it('TEST-015 rows with role official / Official / OFFICIAL land in referees and in neither side', () => {
+    const rows: MatchPlayerRow[] = [
+      ...players(3),
+      { _id: 'o1', name: 'Olga Oficiální', role: 'official', side: 'neutral' },
+      { _id: 'o2', name: 'Oto Official', role: 'Official', side: 'home' },
+      { _id: 'o3', name: 'Ota OFFICIAL', role: 'OFFICIAL', side: 'guest' },
+      { _id: 'r1', name: 'Radek Rozhodčí', role: 'referee', side: 'neutral' },
+    ];
+    const lineup = groupLineup(rows);
+    expect(lineup.referees.map((r) => r.name)).toEqual(['Olga Oficiální', 'Oto Official', 'Ota OFFICIAL', 'Radek Rozhodčí']);
+    expect(lineup.home.map((p) => p.name)).not.toContain('Oto Official');
+    expect(lineup.guest.map((p) => p.name)).not.toContain('Ota OFFICIAL');
+    expect(mod.countRosterPlayers(lineup.home)).toEqual({ field: 3, goalkeepers: 0 });
+  });
+});
+
+describe('TEST-016 nameless referee rows are dropped, not merged into one blank row (Spec-AC-12)', () => {
+  it('TEST-016 empty and whitespace-only referee names produce no referee entry', () => {
+    const rows: MatchPlayerRow[] = [
+      { _id: 'e1', name: '', role: 'referee', side: 'neutral' },
+      { _id: 'e2', name: '   ', role: 'referee', side: 'neutral', image: 'https://images.example.com/x.jpg' },
+      { _id: 'e3', name: null, role: 'official', side: 'neutral' },
+      { _id: 'j1', name: 'Jan Sudí', role: 'referee', side: 'neutral' },
+    ];
+    const lineup = groupLineup(rows);
+    expect(lineup.referees.map((r) => r.name)).toEqual(['Jan Sudí']);
+    expect(lineup.home).toEqual([]);
+    expect(lineup.guest).toEqual([]);
+  });
+});
+
