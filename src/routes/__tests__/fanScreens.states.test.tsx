@@ -132,14 +132,15 @@ describe('Lineup — states', () => {
   const route = '/s/matches/:matchId/lineup';
   const path = '/s/matches/M1/lineup';
   it('empty → EmptyState', async () => {
-    vi.mocked(fetchLineup).mockResolvedValue({ home: [], guest: [] });
+    vi.mocked(fetchLineup).mockResolvedValue({ home: [], guest: [], referees: [] });
     renderScreen(<LineupPage />, { path, route });
     expect(await screen.findByText(tr('mobile.fan.lineup.empty'))).toBeInTheDocument();
   });
   it('data → players', async () => {
     vi.mocked(fetchLineup).mockResolvedValue({
-      home: [{ id: '1', name: 'Karel', jersey: '9', position: 'forward', isCaptain: false, isCoach: false }],
+      home: [{ id: '1', name: 'Karel', jersey: '9', position: 'forward', isCaptain: false, isCoach: false, isGoalkeeper: false, isPlayer: true }],
       guest: [],
+      referees: [],
     });
     renderScreen(<LineupPage />, { path, route });
     expect(await screen.findByTestId('lineup-player')).toBeInTheDocument();

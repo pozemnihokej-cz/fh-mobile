@@ -1,3 +1,4 @@
+import { isGoalkeeper } from '@fh/schema';
 import { unwrap, type SupabaseLike } from './supabaseRead';
 import { ConvexHttpClient } from 'convex/browser';
 import { api } from '@convex/_generated/api';
@@ -28,6 +29,10 @@ export interface LineupPlayer {
   position: string | null;
   isCaptain: boolean;
   isCoach: boolean;
+  /** Canonical `@fh/schema` goalkeeper classification over role and position. */
+  isGoalkeeper: boolean;
+  /** A field player or goalkeeper; false for coaches, staff, officials, referees. */
+  isPlayer: boolean;
   image?: string | null;
   side?: 'home' | 'guest' | 'away';
 }
@@ -35,6 +40,49 @@ export interface LineupPlayer {
 export interface Lineup {
   home: LineupPlayer[];
   guest: LineupPlayer[];
+  /** Match referees (role `referee`), one entry per person, in roster order. */
+  referees: LineupPlayer[];
+}
+
+/** Roles that make a roster row a player; every other role is staff. */
+const PLAYER_ROLES = new Set(['', 'player', 'captain', 'c']);
+
+function normRole(role: unknown): string {
+  return typeof role === 'string' ? role.trim().toLowerCase() : '';
+}
+
+function isPlayerRow(row: MatchPlayerRow): boolean {
+  const r = normRole(row.role);
+  if (PLAYER_ROLES.has(r)) return true;
+  return isGoalkeeper({ role: r });
+}
+
+export function isRefereeRow(row: MatchPlayerRow): boolean {
+  return normRole(row.role) === 'referee';
+}
+
+export interface RosterCount {
+  field: number;
+  goalkeepers: number;
+}
+
+/** Count field players and goalkeepers; non-player roles change neither number. */
+export function countRosterPlayers(players: LineupPlayer[]): RosterCount {
+  let field = 0;
+  let goalkeepers = 0;
+  for (const p of players) {
+    if (!p.isPlayer) continue;
+    if (p.isGoalkeeper) goalkeepers += 1;
+    else field += 1;
+  }
+  return { field, goalkeepers };
+}
+
+/** `(F+G)` for a side with at least one player, otherwise null (no misleading zero). */
+export function formatRosterCount(players: LineupPlayer[]): string | null {
+  const { field, goalkeepers } = countRosterPlayers(players);
+  if (field + goalkeepers === 0) return null;
+  return `(${field}+${goalkeepers})`;
 }
 
 export function isGuestSide(side: unknown): boolean {
@@ -56,6 +104,8 @@ function toPlayer(row: MatchPlayerRow): LineupPlayer {
     position: row.position || null,
     isCaptain: row.role === 'captain' || row.role === 'Captain' || row.role === 'C',
     isCoach: row.role === 'coach',
+    isGoalkeeper: isGoalkeeper({ role: row.role, position: row.position }),
+    isPlayer: isPlayerRow(row),
     image: row.image || (row as any).photoUrl || (row as any).photo_url || (row as any).imageUrl || (row as any).playerImage || null,
     side: isGuest ? 'guest' : 'home',
   };
@@ -78,8 +128,19 @@ function sortPlayers(a: LineupPlayer, b: LineupPlayer): number {
 export function groupLineup(rows: MatchPlayerRow[]): Lineup {
   const home: LineupPlayer[] = [];
   const guest: LineupPlayer[] = [];
+  const referees: LineupPlayer[] = [];
+  const seenReferees = new Set<string>();
   for (const r of rows) {
-    if (r.role === 'referee' || r.role === 'Official' || r.side === 'neutral') continue;
+    if (isRefereeRow(r)) {
+      // The same person delegated twice arrives as two rows; show them once.
+      const key = (r.name ?? '').trim().toLowerCase();
+      if (!seenReferees.has(key)) {
+        seenReferees.add(key);
+        referees.push(toPlayer(r));
+      }
+      continue;
+    }
+    if (r.role === 'Official' || r.side === 'neutral') continue;
     const player = toPlayer(r);
     if (isGuestSide(r.side)) {
       guest.push(player);
@@ -89,7 +150,7 @@ export function groupLineup(rows: MatchPlayerRow[]): Lineup {
   }
   home.sort(sortPlayers);
   guest.sort(sortPlayers);
-  return { home, guest };
+  return { home, guest, referees };
 }
 
 /** Fetch the roster for a match and split it into sides. Supports Supabase and Convex. */
@@ -170,6 +231,6 @@ export async function fetchLineup(
     // All attempts failed
   }
 
-  return { home: [], guest: [] };
+  return { home: [], guest: [], referees: [] };
 }
 

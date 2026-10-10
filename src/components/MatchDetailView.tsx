@@ -31,7 +31,14 @@ import { isMatchGenuinelyLive } from '@fh/schema';
 import { toImageUrl } from '../lib/runtimeUrls';
 import { supabase } from '../lib/supabase';
 import { useAsyncData } from '../lib/useAsyncData';
-import { fetchLineup, groupLineup, isGuestSide, type LineupPlayer } from '../lib/adapters/lineup';
+import {
+  fetchLineup,
+  formatRosterCount,
+  groupLineup,
+  isGuestSide,
+  type Lineup,
+  type LineupPlayer,
+} from '../lib/adapters/lineup';
 import { PlayerDetailModal } from './PlayerDetailModal';
 import { formatPositionCz } from '../lib/playerUtils';
 import { resolveDisplayTeamNames } from '../lib/teamNames';
@@ -80,17 +87,22 @@ export function MatchDetailView({
   );
 
   // Lineup fetch for the integrated in-tunnel roster tab — fallback to Supabase / Convex HTTP
-  const { data: lineupData } = useAsyncData(
+  const { data: lineupData, loading: lineupLoading } = useAsyncData(
     () => fetchLineup(supabase, canonicalMatchId),
     [canonicalMatchId],
     Boolean(canonicalMatchId),
   );
-  const lineup = useMemo(() => {
-    if (Array.isArray(convexRoster) && convexRoster.length > 0) {
+  const hasConvexRoster = Array.isArray(convexRoster) && convexRoster.length > 0;
+  const lineup = useMemo<Lineup>(() => {
+    if (hasConvexRoster) {
       return groupLineup(convexRoster as any);
     }
-    return lineupData ?? { home: [], guest: [] };
-  }, [convexRoster, lineupData]);
+    return lineupData ?? { home: [], guest: [], referees: [] };
+  }, [hasConvexRoster, convexRoster, lineupData]);
+  // The roster is known once Convex delivered rows or the fallback fetch settled.
+  const rosterResolved = hasConvexRoster || !lineupLoading;
+  const homeCount = formatRosterCount(lineup.home);
+  const guestCount = formatRosterCount(lineup.guest);
   const currentPlayers = rosterSide === 'home' ? lineup.home : lineup.guest;
   const fieldPlayers = useMemo(() => currentPlayers.filter((p) => !p.isCoach), [currentPlayers]);
   const coaches = useMemo(() => currentPlayers.filter((p) => p.isCoach), [currentPlayers]);
@@ -164,6 +176,106 @@ export function MatchDetailView({
 
   const cfg = (match as unknown as { config?: { youtubeVideoId?: string; youtubeUrl?: string } }).config;
   const youtubeVideoId = cfg?.youtubeVideoId || cfg?.youtubeUrl?.split('v=')[1];
+
+  // spec-fan-live-match-detail-usability Spec-AC-04/05: one treatment for all
+  // three tabs. A white pill with a near-black label reads on every stop of the
+  // green LIVE stage (the tenant primary does not: 1.01:1 measured), the fill
+  // itself separates active from inactive, and the white focus ring shows on
+  // the stage where the primary-coloured default ring does not.
+  const matchTabSx = (active: boolean) => ({
+    minHeight: 44, minWidth: 44,
+    py: 0.8,
+    borderRadius: '10px',
+    bgcolor: active ? theme.palette.common.white : 'transparent',
+    color: active ? theme.palette.grey[900] : theme.palette.common.white,
+    border: `1px solid ${active ? theme.palette.common.white : 'transparent'}`,
+    fontWeight: active ? 900 : 700,
+    fontSize: '0.82rem',
+    textTransform: 'none',
+    transition: 'all 0.15s ease',
+    '&:hover': {
+      bgcolor: active ? theme.palette.common.white : alpha(theme.palette.common.white, 0.1),
+    },
+    '&:focus-visible, &.Mui-focusVisible': {
+      outline: `3px solid ${theme.palette.common.white}`,
+      outlineOffset: '2px',
+    },
+  });
+
+  const matchTabs: Array<{ id: 'timeline' | 'overview' | 'roster'; label: string }> = [
+    { id: 'timeline', label: 'Průběh' },
+    { id: 'overview', label: 'Přehled' },
+    { id: 'roster', label: 'Soupisky' },
+  ];
+
+  const renderRefereeRow = (r: LineupPlayer): JSX.Element => {
+    const refereeImage = toImageUrl(r.image);
+    return (
+      <Box
+        key={r.id || r.name}
+        data-testid="referee-row"
+        sx={{
+          minHeight: 44,
+          display: 'flex',
+          alignItems: 'center',
+          gap: 1.25,
+          px: 1.5,
+          py: 0.85,
+          borderRadius: '14px',
+          bgcolor: alpha(theme.palette.common.white, 0.04),
+          border: `1px solid ${alpha(theme.palette.common.white, 0.06)}`,
+        }}
+      >
+        <Avatar
+          src={refereeImage ?? undefined}
+          alt={r.name}
+          sx={{
+            width: 36,
+            height: 36,
+            borderRadius: '10px',
+            bgcolor: alpha(theme.palette.common.white, 0.08),
+            color: 'common.white',
+            flexShrink: 0,
+            border: `1px solid ${alpha(theme.palette.common.white, 0.12)}`,
+          }}
+        >
+          <FhIcon name="roster" inline sx={{ fontSize: '1rem' }} />
+        </Avatar>
+        <Typography
+          sx={{
+            ...typeScale.body,
+            flex: 1,
+            fontSize: '0.88rem',
+            fontWeight: 700,
+            color: 'common.white',
+            minWidth: 0,
+          }}
+          noWrap
+        >
+          {r.name}
+        </Typography>
+      </Box>
+    );
+  };
+
+  const refereesSection = (
+    <Box data-testid="match-referees" sx={{ mb: 3 }}>
+      <Typography
+        component="h3"
+        variant="caption"
+        sx={{ color: 'text.secondary', fontWeight: 800, letterSpacing: '0.05em', display: 'block', mb: 1, textTransform: 'uppercase' }}
+      >
+        Rozhodčí
+      </Typography>
+      {lineup.referees.length > 0 ? (
+        <Stack spacing={0.75}>{lineup.referees.map((r) => renderRefereeRow(r))}</Stack>
+      ) : (
+        <Typography variant="body2" sx={{ color: 'text.secondary', fontSize: '0.82rem' }}>
+          {rosterResolved ? 'Rozhodčí zatím nebyli zveřejněni.' : 'Načítám rozhodčí…'}
+        </Typography>
+      )}
+    </Box>
+  );
 
   const renderPlayerRow = (p: LineupPlayer): JSX.Element => {
     const positionLabel = formatPositionCz(p.position, p.isCoach);
@@ -333,6 +445,8 @@ export function MatchDetailView({
       position: null,
       isCaptain: false,
       isCoach: false,
+      isGoalkeeper: false,
+      isPlayer: true,
       image: event.playerImage || event.image || null,
       side: isEventGuest ? 'guest' : 'home',
     };
@@ -388,6 +502,7 @@ export function MatchDetailView({
       {/* Segmented Tunnel Navigation Tabs */}
       <Box
         ref={tabBarRef}
+        data-testid="match-detail-tabs"
         sx={{
           display: 'flex',
           bgcolor: alpha(theme.palette.common.white, 0.05),
@@ -398,60 +513,17 @@ export function MatchDetailView({
           scrollMarginTop: { xs: '64px', sm: '76px' },
         }}
       >
-        <Button
-          fullWidth
-          onClick={() => handleTabChange('timeline')}
-          sx={{
-            py: 0.8,
-            borderRadius: '10px',
-            bgcolor: tunnelTab === 'timeline' ? alpha(theme.palette.primary.main, 0.25) : 'transparent',
-            color: tunnelTab === 'timeline' ? 'primary.main' : alpha(theme.palette.common.white, 0.75),
-            border: tunnelTab === 'timeline' ? `1px solid ${alpha(theme.palette.primary.main, 0.4)}` : '1px solid transparent',
-            fontWeight: 800,
-            fontSize: '0.82rem',
-            textTransform: 'none',
-            transition: 'all 0.15s ease',
-            ...focusRing(theme),
-          }}
-        >
-          Průběh
-        </Button>
-        <Button
-          fullWidth
-          onClick={() => handleTabChange('overview')}
-          sx={{
-            py: 0.8,
-            borderRadius: '10px',
-            bgcolor: tunnelTab === 'overview' ? alpha(theme.palette.primary.main, 0.25) : 'transparent',
-            color: tunnelTab === 'overview' ? 'primary.main' : alpha(theme.palette.common.white, 0.75),
-            border: tunnelTab === 'overview' ? `1px solid ${alpha(theme.palette.primary.main, 0.4)}` : '1px solid transparent',
-            fontWeight: 800,
-            fontSize: '0.82rem',
-            textTransform: 'none',
-            transition: 'all 0.15s ease',
-            ...focusRing(theme),
-          }}
-        >
-          Přehled
-        </Button>
-        <Button
-          fullWidth
-          onClick={() => handleTabChange('roster')}
-          sx={{
-            py: 0.8,
-            borderRadius: '10px',
-            bgcolor: tunnelTab === 'roster' ? alpha(theme.palette.primary.main, 0.25) : 'transparent',
-            color: tunnelTab === 'roster' ? 'primary.main' : alpha(theme.palette.common.white, 0.75),
-            border: tunnelTab === 'roster' ? `1px solid ${alpha(theme.palette.primary.main, 0.4)}` : '1px solid transparent',
-            fontWeight: 800,
-            fontSize: '0.82rem',
-            textTransform: 'none',
-            transition: 'all 0.15s ease',
-            ...focusRing(theme),
-          }}
-        >
-          Soupisky
-        </Button>
+        {matchTabs.map((tab) => (
+          <Button
+            key={tab.id}
+            fullWidth
+            aria-pressed={tunnelTab === tab.id}
+            onClick={() => handleTabChange(tab.id)}
+            sx={{ ...focusRing(theme), ...matchTabSx(tunnelTab === tab.id) }}
+          >
+            {tab.label}
+          </Button>
+        ))}
       </Box>
 
       {/* Tab: Průběh (Timeline) */}
@@ -550,6 +622,7 @@ export function MatchDetailView({
       {tunnelTab === 'overview' && (
         <Box sx={{ mb: 4 }}>
           <Paper
+            data-testid="match-info-card"
             elevation={0}
             sx={{
               p: 2,
@@ -577,6 +650,8 @@ export function MatchDetailView({
               </Box>
             </Stack>
           </Paper>
+
+          {refereesSection}
 
           {/* YouTube Video Section */}
           {youtubeVideoId && (
@@ -657,6 +732,7 @@ export function MatchDetailView({
           >
             <Button
               fullWidth
+              data-testid="roster-side-home"
               onClick={() => setRosterSide('home')}
               sx={{
                 ...focusRing(theme),
@@ -687,10 +763,11 @@ export function MatchDetailView({
                 </Avatar>
               }
             >
-              {displayHome} {lineup.home.length > 0 && `(${lineup.home.length})`}
+              {displayHome}{homeCount ? ` ${homeCount}` : ''}
             </Button>
             <Button
               fullWidth
+              data-testid="roster-side-guest"
               onClick={() => setRosterSide('guest')}
               sx={{
                 ...focusRing(theme),
@@ -721,7 +798,7 @@ export function MatchDetailView({
                 </Avatar>
               }
             >
-              {displayAway} {lineup.guest.length > 0 && `(${lineup.guest.length})`}
+              {displayAway}{guestCount ? ` ${guestCount}` : ''}
             </Button>
           </Box>
 
