@@ -76,7 +76,16 @@ export function MatchDetailView({
 
   // Fan app is a read-only surface — use the display-only clock so we can't
   // accidentally fire operator mutations (start/pause/phase).
-  const { time: elapsed, phase, totalElapsed, running: isRunning, colonVisible, loaded: clockLoaded } = useLiveMatchClock(canonicalMatchId, matchConfig);
+  const {
+    time: elapsed,
+    phase,
+    totalElapsed,
+    running: isRunning,
+    colonVisible,
+    loaded: clockLoaded,
+    cornerRunning,
+    cornerTime,
+  } = useLiveMatchClock(canonicalMatchId, matchConfig);
   const { events, derivedState, loaded: timelineLoaded } = useTimeline(canonicalMatchId, totalElapsed);
 
   // Convex live query for match roster (OM parity — holds complete rosters)
@@ -485,6 +494,8 @@ export function MatchDetailView({
                 phase={phase}
                 isRunning={isRunning}
                 colonVisible={colonVisible}
+                cornerRunning={cornerRunning}
+                cornerTime={cornerTime}
                 variant="fancy"
               />
             ) : (

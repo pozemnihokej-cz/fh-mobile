@@ -28,19 +28,37 @@ vi.mock('@convex/_generated/api', () => ({
 // Capture the `live` prop MatchScoreboard receives + whether a MatchClock is
 // mounted (the live-only child). The status chip is plain MUI (not mocked).
 const scoreboardLive = vi.hoisted(() => ({ value: undefined as unknown }));
+const liveClockState = vi.hoisted(() => ({
+  value: {
+    time: 0,
+    totalElapsed: 0,
+    phase: '1Q',
+    running: true,
+    colonVisible: true,
+    loaded: true,
+    cornerRunning: false,
+    cornerTime: 0,
+  },
+}));
 vi.mock('@fh/ui', () => ({
   MatchScoreboard: ({ live, clock }: any) => {
     scoreboardLive.value = live;
     return <div data-testid="scoreboard" data-live={live ? '1' : '0'}>{clock}</div>;
   },
   MatchTimeline: () => null,
-  MatchClock: () => <div data-testid="matchclock" />,
+  MatchClock: (props: any) => (
+    <div
+      data-testid="matchclock"
+      data-corner-running={props.cornerRunning ? '1' : '0'}
+      data-corner-time={props.cornerTime}
+    />
+  ),
   LiveEventToast: () => null,
   EmptyState: () => null,
   MatchCardSkeleton: () => null,
   FhIcon: () => null,
   useTimeline: () => ({ events: [], derivedState: { score: { home: 0, away: 0 }, activeSuspensions: [] } }),
-  useLiveMatchClock: () => ({ time: 0, totalElapsed: 0, phase: '1Q', running: true, colonVisible: true, loaded: true }),
+  useLiveMatchClock: () => liveClockState.value,
   useTimelineEventBursts: () => ({ current: null }),
   focusRing: () => ({}),
   typeScale: { body: {}, bodyStrong: {} },
@@ -106,5 +124,23 @@ describe('MatchDetailView live derivation (Spec-AC-04)', () => {
     renderView();
     expect(screen.getByTestId('scoreboard').getAttribute('data-live')).toBe('0');
     expect(screen.queryByTestId('matchclock')).toBeNull();
+  });
+
+  it('forwards cornerRunning and cornerTime to MatchClock when corner countdown is active', () => {
+    liveClockState.value = {
+      time: 600,
+      totalElapsed: 300,
+      phase: '2Q',
+      running: false,
+      colonVisible: true,
+      loaded: true,
+      cornerRunning: true,
+      cornerTime: 38,
+    };
+    queryState.match = { ...baseMatch, status: 'in_progress', startedAt: now - 60_000 };
+    renderView();
+    const clock = screen.getByTestId('matchclock');
+    expect(clock.getAttribute('data-corner-running')).toBe('1');
+    expect(clock.getAttribute('data-corner-time')).toBe('38');
   });
 });
