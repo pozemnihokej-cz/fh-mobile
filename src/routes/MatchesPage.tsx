@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect, useRef, useCallback } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useQuery } from 'convex/react';
 import { api } from '@convex/_generated/api';
 import {
@@ -28,6 +28,13 @@ import { useTenantContext } from './TenantContext';
 import { useFanPreferences } from '../lib/useFanPreferences';
 import { useNearestVenue } from '../hooks/useNearestVenue';
 import { resolveDisplayTeamNames } from '../lib/teamNames';
+import {
+  MATCH_LIST_DEEP_LINK_PARAMS,
+  matchVenueLabel,
+  readMatchListDeepLink,
+  resolveMatchListDeepLink,
+  type ResolvedMatchListFilters,
+} from '../lib/matchListDeepLink';
 
 function startOfDay(ts: number): number {
   const d = new Date(ts);
@@ -132,16 +139,59 @@ export default function MatchesPage(): JSX.Element {
     tenantId ? { tenantId } : 'skip',
   );
 
+  // PRD-072: `?venue=` / `?league=` (or the name fallbacks) preselect a filter. A deep link wins over the saved
+  // session filters — none of them, the team filter included, is reused while one is present.
+  const [searchParams, setSearchParams] = useSearchParams();
+  const deepLinkKey = useMemo(() => {
+    const link = readMatchListDeepLink(searchParams);
+    return link ? JSON.stringify(link) : null;
+  }, [searchParams]);
+  const sessionFilters = deepLinkKey ? null : savedState;
+
   // Independent filtering & pagination state — initialized from saved session if available
-  const [selectedVenue, setSelectedVenue] = useState<string>(savedState?.selectedVenue ?? 'all');
-  const [selectedLeague, setSelectedLeague] = useState<string>(savedState?.selectedLeague ?? 'all');
-  const [selectedTeam, setSelectedTeam] = useState<string>(savedState?.selectedTeam ?? 'all');
+  const [selectedVenue, setSelectedVenue] = useState<string>(sessionFilters?.selectedVenue ?? 'all');
+  const [selectedLeague, setSelectedLeague] = useState<string>(sessionFilters?.selectedLeague ?? 'all');
+  const [selectedTeam, setSelectedTeam] = useState<string>(sessionFilters?.selectedTeam ?? 'all');
   const [daysBack, setDaysBack] = useState<number>(savedState?.daysBack ?? 0);
   const [daysForward, setDaysForward] = useState<number>(savedState?.daysForward ?? 7);
 
   const { nearestVenueName, nearbyVenues, status: geoStatus } = useNearestVenue(visibleVenues, {
     matches: matches as any,
   });
+
+  // PRD-072: apply a deep link once the rows it names have loaded; once the reader moves the filters away from it,
+  // drop its parameters so a refresh does not bring the old selection back.
+  const deepLinkRef = useRef<{ key: string; filters: ResolvedMatchListFilters; settled: boolean } | null>(null);
+  useEffect(() => {
+    if (!deepLinkKey || !matches || deepLinkRef.current?.key === deepLinkKey) return;
+    const filters = resolveMatchListDeepLink(JSON.parse(deepLinkKey), matches as MatchCardData[]);
+    deepLinkRef.current = { key: deepLinkKey, filters, settled: false };
+    setSelectedVenue(filters.venue);
+    setSelectedLeague(filters.league);
+    setSelectedTeam(filters.team);
+  }, [deepLinkKey, matches]);
+  useEffect(() => {
+    const applied = deepLinkRef.current;
+    if (!applied || applied.key !== deepLinkKey) return;
+    const same =
+      selectedVenue === applied.filters.venue &&
+      selectedLeague === applied.filters.league &&
+      selectedTeam === applied.filters.team;
+    if (same) {
+      applied.settled = true;
+      return;
+    }
+    if (!applied.settled) return;
+    deepLinkRef.current = null;
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams(prev);
+        for (const param of MATCH_LIST_DEEP_LINK_PARAMS) next.delete(param);
+        return next;
+      },
+      { replace: true },
+    );
+  }, [deepLinkKey, selectedVenue, selectedLeague, selectedTeam, setSearchParams]);
 
   // Persist pagination & filter state to session storage
   useEffect(() => {
@@ -225,8 +275,8 @@ export default function MatchesPage(): JSX.Element {
     const set = new Set<string>();
     if (matches) {
       for (const m of matches as MatchCardData[]) {
-        const v = m.venue ?? m.location;
-        if (v && v.trim()) set.add(v.trim());
+        const v = matchVenueLabel(m);
+        if (v) set.add(v);
       }
     }
     return Array.from(set).sort();
@@ -281,12 +331,12 @@ export default function MatchesPage(): JSX.Element {
     if (!matches) return [];
     return (matches as MatchCardData[]).filter((m) => {
       if (m.status === 'cancelled') return false;
+      // Compared trimmed, as the options are built (PRD-072: a deep link resolves to the option name).
       if (selectedVenue !== 'all') {
-        const v = m.venue ?? m.location;
-        if (v !== selectedVenue) return false;
+        if (matchVenueLabel(m) !== selectedVenue) return false;
       }
       if (selectedLeague !== 'all') {
-        if (m.leagueName !== selectedLeague) return false;
+        if ((m.leagueName ?? '').trim() !== selectedLeague) return false;
       }
       if (selectedTeam !== 'all') {
         const { home, away } = resolveDisplayTeamNames(m);

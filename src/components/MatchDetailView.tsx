@@ -1,4 +1,5 @@
 import { useMemo, useState, useEffect, useRef } from 'react';
+import { Link as RouterLink } from 'react-router-dom';
 import { useQuery } from 'convex/react';
 import { api } from '@convex/_generated/api';
 import {
@@ -10,6 +11,8 @@ import {
   Snackbar,
   Stack,
   Avatar,
+  IconButton,
+  Link,
   useTheme,
   alpha,
 } from '@mui/material';
@@ -42,6 +45,8 @@ import {
 import { PlayerDetailModal } from './PlayerDetailModal';
 import { formatPositionCz } from '../lib/playerUtils';
 import { resolveDisplayTeamNames } from '../lib/teamNames';
+import { buildMatchListHref, googleMapsDirectionsHref } from '../lib/matchListDeepLink';
+import { useTenantContext } from '../routes/TenantContext';
 
 export function MatchDetailView({
   matchId,
@@ -53,6 +58,7 @@ export function MatchDetailView({
   onToggleStar: (e: React.MouseEvent) => void;
 }): JSX.Element {
   const theme = useTheme();
+  const { slug } = useTenantContext();
   const tabBarRef = useRef<HTMLDivElement | null>(null);
   const [tunnelTab, setTunnelTab] = useState<'timeline' | 'overview' | 'roster'>('timeline');
   const [rosterSide, setRosterSide] = useState<'home' | 'guest'>('home');
@@ -186,6 +192,20 @@ export function MatchDetailView({
       />
     );
   }
+
+  // PRD-072: the competition and the venue link to the match list filtered to them (stable ids, name fallback);
+  // the venue gets a Google Maps action when its coordinates or address are known.
+  const linkIds = match as unknown as { venueId?: string | null; leagueId?: string | null };
+  const competitionHref = match.leagueName
+    ? buildMatchListHref(slug, { leagueId: linkIds.leagueId, leagueName: match.leagueName })
+    : null;
+  const venueHref = match.location
+    ? buildMatchListHref(slug, { venueId: linkIds.venueId, venueName: match.location })
+    : null;
+  const venueInfo = (match as unknown as { venueInfo?: { name: string; address: string | null; gps: string | null } | null })
+    .venueInfo;
+  const mapsHref = googleMapsDirectionsHref(venueInfo);
+  const venueLabel = match.location || venueInfo?.name || 'místo konání';
 
   const cfg = (match as unknown as { config?: { youtubeVideoId?: string; youtubeUrl?: string } }).config;
   const youtubeVideoId = cfg?.youtubeVideoId || cfg?.youtubeUrl?.split('v=')[1];
@@ -655,7 +675,7 @@ export function MatchDetailView({
             <Stack spacing={1.25}>
               <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <Typography variant="body2" sx={{ color: 'text.secondary', fontSize: '0.82rem' }}>Soutěž</Typography>
-                <Typography variant="body2" sx={{ fontWeight: 800, color: 'common.white', fontSize: '0.82rem' }}>{match.leagueName || '—'}</Typography>
+                <InfoValueLink href={competitionHref}>{match.leagueName || '—'}</InfoValueLink>
               </Box>
               <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <Typography variant="body2" sx={{ color: 'text.secondary', fontSize: '0.82rem' }}>Datum a čas</Typography>
@@ -663,7 +683,23 @@ export function MatchDetailView({
               </Box>
               <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <Typography variant="body2" sx={{ color: 'text.secondary', fontSize: '0.82rem' }}>Místo konání</Typography>
-                <Typography variant="body2" sx={{ fontWeight: 800, color: 'common.white', fontSize: '0.82rem' }}>{match.location || 'Není uvedeno'}</Typography>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, minWidth: 0 }}>
+                  <InfoValueLink href={venueHref}>{match.location || 'Není uvedeno'}</InfoValueLink>
+                  {mapsHref && (
+                    <IconButton
+                      component="a"
+                      href={mapsHref}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      size="small"
+                      aria-label={`Navigovat na ${venueLabel} v Google Mapách`}
+                      data-testid="venue-maps-link"
+                      sx={{ color: 'primary.light', p: 0.5, ...focusRing(theme) }}
+                    >
+                      <FhIcon name="directions" inline />
+                    </IconButton>
+                  )}
+                </Box>
               </Box>
             </Stack>
           </Paper>
@@ -928,5 +964,29 @@ export function MatchDetailView({
         onClose={() => setSelectedPlayerModal(null)}
       />
     </Box>
+  );
+}
+
+/** PRD-072: a Match information value, rendered as a router link to the filtered match list when there is one. */
+function InfoValueLink({ href, children }: { href: string | null; children: React.ReactNode }): JSX.Element {
+  const theme = useTheme();
+  const sx = { fontWeight: 800, color: 'common.white', fontSize: '0.82rem', textAlign: 'right' as const, overflowWrap: 'anywhere' as const };
+  if (!href) {
+    return (
+      <Typography variant="body2" sx={sx}>
+        {children}
+      </Typography>
+    );
+  }
+  return (
+    <Link
+      component={RouterLink}
+      to={href}
+      variant="body2"
+      underline="always"
+      sx={{ ...sx, textDecorationColor: alpha(theme.palette.common.white, 0.4), ...focusRing(theme) }}
+    >
+      {children}
+    </Link>
   );
 }
