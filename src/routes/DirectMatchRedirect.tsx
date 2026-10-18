@@ -5,7 +5,7 @@ import { api } from '@convex/_generated/api';
 import { Box, CircularProgress, Typography, Button, Container, useTheme } from '@mui/material';
 import { FhIcon, focusRing } from '@fh/ui';
 import { supabase } from '../lib/supabase';
-import { resolveTenantById } from '../lib/tenantBySlug';
+import { resolveTenantById, resolveTenantBySlug } from '../lib/tenantBySlug';
 
 const DEFAULT_SLUG = 'cz-field-hockey-union';
 
@@ -36,9 +36,26 @@ export default function DirectMatchRedirect(): JSX.Element {
 
   const targetId = paramMatchId || queryMatchId;
 
+  // ISSUE-199: a SportsPress number in a tenant-less link is resolved inside the default union tenant, never
+  // across tenants. The read waits for the slug lookup (undefined = pending) so it is never issued untenanted
+  // first; a failed lookup (null) still reads without a tenant.
+  const [defaultTenantId, setDefaultTenantId] = useState<string | null | undefined>(undefined);
+  useEffect(() => {
+    let cancelled = false;
+    void resolveTenantBySlug(supabase, DEFAULT_SLUG).then(
+      (t) => !cancelled && setDefaultTenantId(t?.id ?? null),
+      () => !cancelled && setDefaultTenantId(null),
+    );
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   const match = useQuery(
     api.functions.matches.getBySupabaseId,
-    targetId ? { supabaseId: targetId } : 'skip',
+    targetId && defaultTenantId !== undefined
+      ? { supabaseId: targetId, ...(defaultTenantId ? { tenantId: defaultTenantId } : {}) }
+      : 'skip',
   );
 
   const [, setResolving] = useState(false);

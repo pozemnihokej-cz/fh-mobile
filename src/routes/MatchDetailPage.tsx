@@ -8,6 +8,7 @@ import { isMatchGenuinelyLive } from '@fh/schema';
 import { MatchDetailView } from '../components/MatchDetailView';
 import { useFanPreferences } from '../lib/useFanPreferences';
 import { resolveDisplayTeamNames } from '../lib/teamNames';
+import { useTenantContext } from './TenantContext';
 
 /**
  * CHANGE-055 Spec-AC-07: `/<slug>/matches/<matchId>` direct deep link.
@@ -22,7 +23,12 @@ export default function MatchDetailPage(): JSX.Element {
   const { isMatchSaved, toggleMatch } = useFanPreferences();
   const [copied, setCopied] = useState(false);
 
-  const match = useQuery(api.functions.matches.getBySupabaseId, matchId ? { supabaseId: matchId } : 'skip');
+  // ISSUE-199: `/<slug>/live/<SportsPress number>` resolves inside the URL tenant, never across tenants.
+  const { tenantId } = useTenantContext();
+  const match = useQuery(
+    api.functions.matches.getBySupabaseId,
+    matchId ? { supabaseId: matchId, ...(tenantId ? { tenantId } : {}) } : 'skip',
+  );
   const canonicalMatchId = match?.supabaseId ?? matchId ?? '';
 
   const handleShare = async () => {
