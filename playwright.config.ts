@@ -25,7 +25,8 @@ export default defineConfig({
     // `mobile.fh.localhost` subdomain. Requires
     // `bash scripts/dev-hosts-install.sh` once per machine to register the
     // subdomain in /etc/hosts (already part of the standard dev bootstrap).
-    baseURL: 'http://mobile.fh.localhost:10010',
+    // E2E_BASE_URL points the suite at a dev server serving another tree (a worktree), as in fh-evidence.
+    baseURL: process.env.E2E_BASE_URL || 'http://mobile.fh.localhost:10010',
     trace: 'on-first-retry',
     screenshot: 'only-on-failure',
   },
