@@ -73,6 +73,7 @@ import { TenantContext } from '../../routes/TenantContext';
  * Harness as MatchDetailView.tenantRead.test.tsx.
  */
 const NUMBER = '23111';
+const ROUTE_UUID = '0b7e2f4c-1d2a-4c3b-9e8f-112233445566';
 const theme = buildTenantTheme(resolveTenantTheme('cz-field-hockey-union'), 'dark');
 
 function mount(matchId: string) {
@@ -117,8 +118,15 @@ describe('TEST-005 (Spec-AC-05): fan match detail child reads use the resolved U
 
   it('a null match read keeps a UUID URL readable by its own id', () => {
     convexFake.match = null;
-    mount('uuid-route');
-    expect(rosterArgs().every((a) => a.matchId === 'uuid-route')).toBe(true);
+    mount(ROUTE_UUID);
+    expect(rosterArgs().every((a) => a.matchId === ROUTE_UUID)).toBe(true);
     expect(rosterArgs().length).toBeGreaterThan(0);
+  });
+
+  it('a null match read on a number URL issues no child read with the number', () => {
+    convexFake.match = null;
+    mount(NUMBER);
+    expect(rosterArgs()).toEqual([]);
+    expect(everyChildId().filter((id) => id === NUMBER)).toEqual([]);
   });
 });
