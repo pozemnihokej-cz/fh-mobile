@@ -73,7 +73,10 @@ export function MatchDetailView({
     supabaseId: matchId,
     ...(tenantId ? { tenantId } : {}),
   });
-  const canonicalMatchId = match?.supabaseId ?? matchId;
+  // ISSUE-212 / SPEC-208 D5: every child read (roster, timeline, clock, lineup) uses the UUID the tenant-scoped read
+  // resolved, never the raw URL number (`roster:list` takes no tenant). While the read loads there is no id; once it
+  // answered null the URL id stays (a UUID URL still reads its own rows; a number then reads nothing).
+  const canonicalMatchId: string | undefined = match === undefined ? undefined : (match?.supabaseId ?? matchId);
   const matchConfig = useMemo(() => {
     if (!match) return undefined;
     const cfg = (match as any).config;
@@ -107,7 +110,7 @@ export function MatchDetailView({
 
   // Lineup fetch for the integrated in-tunnel roster tab — fallback to Supabase / Convex HTTP
   const { data: lineupData, loading: lineupLoading } = useAsyncData(
-    () => fetchLineup(supabase, canonicalMatchId),
+    () => fetchLineup(supabase, canonicalMatchId as string),
     [canonicalMatchId],
     Boolean(canonicalMatchId),
   );
