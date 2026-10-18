@@ -58,7 +58,7 @@ export function MatchDetailView({
   onToggleStar: (e: React.MouseEvent) => void;
 }): JSX.Element {
   const theme = useTheme();
-  const { slug } = useTenantContext();
+  const { slug, tenantId } = useTenantContext();
   const tabBarRef = useRef<HTMLDivElement | null>(null);
   const [tunnelTab, setTunnelTab] = useState<'timeline' | 'overview' | 'roster'>('timeline');
   const [rosterSide, setRosterSide] = useState<'home' | 'guest'>('home');
@@ -68,7 +68,11 @@ export function MatchDetailView({
     setTunnelTab(tab);
   };
 
-  const match = useQuery(api.functions.matches.getBySupabaseId, { supabaseId: matchId });
+  // ISSUE-199: an external id in the URL resolves inside the URL tenant, never across tenants.
+  const match = useQuery(api.functions.matches.getBySupabaseId, {
+    supabaseId: matchId,
+    ...(tenantId ? { tenantId } : {}),
+  });
   const canonicalMatchId = match?.supabaseId ?? matchId;
   const matchConfig = useMemo(() => {
     if (!match) return undefined;
