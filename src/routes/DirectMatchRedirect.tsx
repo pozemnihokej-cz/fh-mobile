@@ -8,6 +8,8 @@ import { supabase } from '../lib/supabase';
 import { resolveTenantById, resolveTenantBySlug } from '../lib/tenantBySlug';
 
 const DEFAULT_SLUG = 'cz-field-hockey-union';
+/** ISSUE-212: back-off between retries of a failed default-tenant lookup (then the read goes out tenant-less). */
+export const SLUG_RETRY_DELAYS_MS = [500, 1500, 3000];
 
 /**
  * DirectMatchRedirect:
@@ -36,18 +38,35 @@ export default function DirectMatchRedirect(): JSX.Element {
 
   const targetId = paramMatchId || queryMatchId;
 
-  // ISSUE-199: a SportsPress number in a tenant-less link is resolved inside the default union tenant, never
-  // across tenants. The read waits for the slug lookup (undefined = pending) so it is never issued untenanted
-  // first; a failed lookup (null) still reads without a tenant.
+  // ISSUE-199 / ISSUE-212: a SportsPress number in a tenant-less link is resolved inside the default union tenant,
+  // never across tenants. The read waits for the slug lookup (undefined = pending), so it is never issued untenanted
+  // first. A failed lookup is retried (SLUG_RETRY_DELAYS_MS); only once every attempt failed does the read go out
+  // without a tenant, and then Convex resolves a UUID only: a number finds no match.
   const [defaultTenantId, setDefaultTenantId] = useState<string | null | undefined>(undefined);
   useEffect(() => {
     let cancelled = false;
-    void resolveTenantBySlug(supabase, DEFAULT_SLUG).then(
-      (t) => !cancelled && setDefaultTenantId(t?.id ?? null),
-      () => !cancelled && setDefaultTenantId(null),
-    );
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const attempt = (n: number): void => {
+      void resolveTenantBySlug(supabase, DEFAULT_SLUG).then(
+        (t) => {
+          if (cancelled) return;
+          if (t?.id) setDefaultTenantId(t.id);
+          else retryOrGiveUp(n);
+        },
+        () => !cancelled && retryOrGiveUp(n),
+      );
+    };
+    const retryOrGiveUp = (n: number): void => {
+      if (n < SLUG_RETRY_DELAYS_MS.length) {
+        timer = setTimeout(() => attempt(n + 1), SLUG_RETRY_DELAYS_MS[n]);
+      } else {
+        setDefaultTenantId(null);
+      }
+    };
+    attempt(0);
     return () => {
       cancelled = true;
+      if (timer) clearTimeout(timer);
     };
   }, []);
 

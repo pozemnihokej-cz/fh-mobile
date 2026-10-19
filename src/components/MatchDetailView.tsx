@@ -47,6 +47,7 @@ import { formatPositionCz } from '../lib/playerUtils';
 import { resolveDisplayTeamNames } from '../lib/teamNames';
 import { buildMatchListHref, googleMapsDirectionsHref } from '../lib/matchListDeepLink';
 import { useTenantContext } from '../routes/TenantContext';
+import { childReadMatchId } from '../lib/matchReadId';
 
 export function MatchDetailView({
   matchId,
@@ -73,7 +74,9 @@ export function MatchDetailView({
     supabaseId: matchId,
     ...(tenantId ? { tenantId } : {}),
   });
-  const canonicalMatchId = match?.supabaseId ?? matchId;
+  // ISSUE-212 / SPEC-208 D5: every child read (roster, timeline, clock, lineup) uses the resolved UUID (see
+  // childReadMatchId), never the raw URL number.
+  const canonicalMatchId = childReadMatchId(matchId, match);
   const matchConfig = useMemo(() => {
     if (!match) return undefined;
     const cfg = (match as any).config;
@@ -107,7 +110,7 @@ export function MatchDetailView({
 
   // Lineup fetch for the integrated in-tunnel roster tab — fallback to Supabase / Convex HTTP
   const { data: lineupData, loading: lineupLoading } = useAsyncData(
-    () => fetchLineup(supabase, canonicalMatchId),
+    () => fetchLineup(supabase, canonicalMatchId as string),
     [canonicalMatchId],
     Boolean(canonicalMatchId),
   );
