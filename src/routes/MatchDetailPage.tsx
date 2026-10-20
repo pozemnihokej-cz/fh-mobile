@@ -9,6 +9,7 @@ import { MatchDetailView } from '../components/MatchDetailView';
 import { useFanPreferences } from '../lib/useFanPreferences';
 import { resolveDisplayTeamNames } from '../lib/teamNames';
 import { useTenantContext } from './TenantContext';
+import { childReadMatchId } from '../lib/matchReadId';
 
 /**
  * CHANGE-055 Spec-AC-07: `/<slug>/matches/<matchId>` direct deep link.
@@ -30,6 +31,9 @@ export default function MatchDetailPage(): JSX.Element {
     matchId ? { supabaseId: matchId, ...(tenantId ? { tenantId } : {}) } : 'skip',
   );
   const canonicalMatchId = match?.supabaseId ?? matchId ?? '';
+  // spec-mobile-lineup-tenant-read D5: the fan star keys by the resolved UUID, never the raw URL number. While the
+  // match read is unresolved (loading, or null for a number) there is no key and the star is a no-op.
+  const starMatchId = childReadMatchId(matchId, match);
 
   const handleShare = async () => {
     try {
@@ -159,10 +163,10 @@ export default function MatchDetailPage(): JSX.Element {
       <Container maxWidth="md" sx={{ py: 3 }}>
         <MatchDetailView
           matchId={canonicalMatchId}
-          starred={isMatchSaved(canonicalMatchId)}
+          starred={starMatchId ? isMatchSaved(starMatchId) : false}
           onToggleStar={(e) => {
             e.stopPropagation();
-            toggleMatch(canonicalMatchId);
+            if (starMatchId) toggleMatch(starMatchId);
           }}
         />
       </Container>

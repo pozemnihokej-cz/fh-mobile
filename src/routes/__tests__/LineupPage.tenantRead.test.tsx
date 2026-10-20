@@ -105,10 +105,11 @@ describe('TEST-002 (Spec-AC-02): a number URL reads the lineup by the resolved U
 });
 
 describe('TEST-003 (Spec-AC-03): while the match read loads, nothing is read and the skeleton shows', () => {
-  it('no fetchLineup call and no empty state yet', () => {
+  it('no fetchLineup call, the skeleton shows, no empty state yet', () => {
     convexFake.match = undefined;
     mount(NUMBER);
     expect(fetchLineupSpy.calls).toEqual([]);
+    expect(screen.getByTestId('fan-list-skeleton')).toBeInTheDocument();
     expect(screen.queryByText(tr('mobile.fan.lineup.empty'))).toBeNull();
   });
 });
