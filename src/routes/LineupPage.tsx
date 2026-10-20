@@ -1,5 +1,7 @@
 import { useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
+import { useQuery } from 'convex/react';
+import { api } from '@convex/_generated/api';
 import { Box, Container, Typography, Stack, Button, Chip, Avatar, alpha, useTheme } from '@mui/material';
 import { StickyGlassHeader, EmptyState, FhIcon, typeScale, focusRing } from '@fh/ui';
 import { useTranslation } from '@fh/i18n';
@@ -11,6 +13,8 @@ import { fetchLineup, isGuestSide, type LineupPlayer } from '../lib/adapters/lin
 import { toImageUrl } from '../lib/runtimeUrls';
 import { formatPositionCz } from '../lib/playerUtils';
 import { PlayerDetailModal } from '../components/PlayerDetailModal';
+import { useTenantContext } from './TenantContext';
+import { childReadMatchId } from '../lib/matchReadId';
 
 /**
  * PRD-055 Phase 2 / Redesign: match lineup at `/<slug>/matches/:matchId/lineup`.
@@ -25,12 +29,23 @@ export default function LineupPage(): JSX.Element {
   const [selectedSide, setSelectedSide] = useState<'home' | 'guest'>('home');
   const [selectedPlayerModal, setSelectedPlayerModal] = useState<LineupPlayer | null>(null);
 
-  const { data, error, loading, refetch } = useAsyncData(
-    () => fetchLineup(supabase, matchId as string),
-    [matchId],
-    Boolean(matchId),
+  const { tenantId } = useTenantContext();
+  // spec-mobile-lineup-tenant-read (ISSUE-212 / SPEC-208 D5 pattern): the URL id resolves inside the URL tenant,
+  // and the lineup is read by the resolved UUID. A SportsPress number never reaches fetchLineup, whose Convex
+  // roster:list fallback takes no tenant.
+  const match = useQuery(
+    api.functions.matches.getBySupabaseId,
+    matchId ? { supabaseId: matchId, ...(tenantId ? { tenantId } : {}) } : 'skip',
   );
-  const lineup = data ?? { home: [], guest: [] };
+  const lineupMatchId = childReadMatchId(matchId, match);
+  const matchLoading = Boolean(matchId) && match === undefined;
+
+  const { data, error, loading, refetch } = useAsyncData(
+    () => fetchLineup(supabase, lineupMatchId as string),
+    [lineupMatchId],
+    Boolean(lineupMatchId),
+  );
+  const lineup = lineupMatchId ? data ?? { home: [], guest: [] } : { home: [], guest: [] };
   const isEmpty = lineup.home.length === 0 && lineup.guest.length === 0;
 
   const currentPlayers = selectedSide === 'home' ? lineup.home : lineup.guest;
@@ -189,8 +204,8 @@ export default function LineupPage(): JSX.Element {
 
       <Container maxWidth="sm" data-testid="lineup-screen">
         <AsyncBoundary
-          loading={loading}
-          error={error}
+          loading={matchLoading || (Boolean(lineupMatchId) && loading)}
+          error={lineupMatchId ? error : undefined}
           isEmpty={isEmpty}
           skeleton={<FanListSkeleton count={6} />}
           onRetry={refetch}

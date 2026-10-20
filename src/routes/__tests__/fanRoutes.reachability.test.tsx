@@ -15,6 +15,12 @@ vi.mock('../../lib/tenantBySlug', () => ({
 }));
 vi.mock('../../lib/supabase', () => ({ supabase: { from: () => ({ select: () => ({ eq: () => ({}) }) }) } }));
 vi.mock('@fh/auth', () => ({ useAuth: () => ({ user: null, switchTenant: vi.fn() }) }));
+// spec-mobile-lineup-tenant-read: LineupPage resolves its URL id through the tenant-scoped Convex match read
+// first. This harness is about async states / routing, so the read resolves the URL id to itself.
+vi.mock('convex/react', () => ({
+  useQuery: (_ref: unknown, args: unknown) =>
+    args === 'skip' ? undefined : { supabaseId: (args as { supabaseId: string }).supabaseId },
+}));
 
 // Read adapters: resolve to empty so screens render their container testid fast.
 vi.mock('../../lib/adapters/standings', () => ({ fetchStandings: vi.fn(async () => []) }));
