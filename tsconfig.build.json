@@ -1,0 +1,18 @@
+{
+  // Prod-build program (spec-frontend-image-build-test-imports): product code only.
+  //
+  // `pnpm build` runs inside Dockerfile.frontend.prod, whose builder copies only
+  // package.json, pnpm-workspace.yaml, pnpm-lock.yaml, tsconfig.base.json,
+  // packages/, apps/ and convex/. Test files import test infrastructure outside
+  // that set (e2e-shared/, services/workers/src/__tests__/sql-schema/), so a
+  // build that compiles them cannot build the image (TS2307, zcom deploy of
+  // ISSUE-231). Tests are still type-checked by `typecheck` (tsconfig.json).
+  "extends": "./tsconfig.json",
+  "exclude": [
+    "src/**/__tests__/**",
+    "src/**/*.test.ts",
+    "src/**/*.test.tsx",
+    "src/**/*.spec.ts",
+    "src/**/*.spec.tsx"
+  ]
+}
