@@ -2,6 +2,7 @@ import { Outlet } from 'react-router-dom';
 import { Box } from '@mui/material';
 import { FAN_STAGE_BG } from '@fh/ui';
 import { OfflineBanner } from './components/OfflineBanner';
+import { AnalyticsTracker } from './components/AnalyticsTracker';
 import { FanPreferencesProvider } from './lib/useFanPreferences';
 
 /**
@@ -16,6 +17,7 @@ import { FanPreferencesProvider } from './lib/useFanPreferences';
 export default function App(): JSX.Element {
   return (
     <FanPreferencesProvider>
+      <AnalyticsTracker />
       <Box sx={{ minHeight: '100vh', background: FAN_STAGE_BG, color: 'common.white' }}>
         <OfflineBanner />
         <Outlet />
