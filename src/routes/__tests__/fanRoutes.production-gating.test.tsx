@@ -84,3 +84,44 @@ describe('Production fan app surface cleanup & gating', () => {
     expect(screen.queryByTestId('auth-submit')).toBeNull();
   });
 });
+
+/**
+ * spec-fan-app-prod-cleanup-and-team-names TEST-002 (Spec-AC-02, Spec-AC-03):
+ * one gate for every hidden surface, and the unreleased flag reopens them.
+ */
+describe('TEST-002: unreleasedPagesHidden() and the flag', () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
+  it.each([
+    [true, '', true],
+    [true, 'false', true],
+    [true, 'true', false],
+    [false, '', false],
+    [false, 'true', false],
+  ])('PROD=%s flag=%j -> hidden=%s', async (prod, flag, hidden) => {
+    vi.stubEnv('PROD', prod);
+    vi.stubEnv('VITE_ENABLE_UNRELEASED_PAGES', flag);
+    const { unreleasedPagesHidden } = await import('../../lib/releaseGate');
+    expect(unreleasedPagesHidden()).toBe(hidden);
+  });
+
+  it('a production build with VITE_ENABLE_UNRELEASED_PAGES=true renders the bottom navigation and the sign-in form', () => {
+    vi.stubEnv('PROD', true);
+    vi.stubEnv('VITE_ENABLE_UNRELEASED_PAGES', 'true');
+    render(
+      <MemoryRouter initialEntries={['/csph/profile']}>
+        <TenantContext.Provider value={{ tenantId: 't1', slug: 'csph', tenantName: 'ČSPH' }}>
+          <ThemeProvider theme={createTheme()}>
+            <FanBottomNav />
+            <ProfilePage />
+          </ThemeProvider>
+        </TenantContext.Provider>
+      </MemoryRouter>,
+    );
+    expect(screen.getByTestId('fan-bottom-nav')).toBeInTheDocument();
+    expect(screen.queryByText(/přihlášení a vytváření uživatelských účtů není v této verzi k dispozici/i)).toBeNull();
+    expect(screen.getByTestId('auth-submit')).toBeInTheDocument();
+  });
+});

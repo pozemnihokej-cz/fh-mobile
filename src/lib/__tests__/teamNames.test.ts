@@ -90,3 +90,84 @@ describe('resolveDisplayTeamNames — OM parity (CHANGE-063, Spec-AC-07)', () =>
     expect(resolveDisplayTeamNames(match)).toEqual({ home: 'Domácí', away: 'Hosté' });
   });
 });
+
+/**
+ * spec-fan-app-prod-cleanup-and-team-names TEST-004 (Spec-AC-05).
+ *
+ * Measured on zcom 2026-10-22: team names carry the category (`Slavia ženy B`),
+ * club short names drop the reserve letter (`Slavia`), and the curated
+ * `teams.short_name` keeps the letter without the category (`Slavia B`).
+ */
+describe('TEST-004 (Spec-AC-05): the curated team short name is the fan label', () => {
+  it('a reserve team against another club keeps its letter (was the bare club name)', () => {
+    const names = resolveDisplayTeamNames({
+      homeTeamName: 'Slavia ženy B',
+      homeTeamShortName: 'Slavia B',
+      homeClubName: 'Slavia',
+      awayTeamName: 'Rakovník ženy',
+      awayTeamShortName: 'Rakovník',
+      awayClubName: 'Rakovník',
+    });
+    expect(names).toEqual({ home: 'Slavia B', away: 'Rakovník' });
+  });
+
+  it('a same-club derby reads with the two short names (zcom 77482)', () => {
+    const names = resolveDisplayTeamNames({
+      homeTeamName: 'Slavia ženy B',
+      homeTeamShortName: 'Slavia B',
+      homeClubName: 'Slavia',
+      awayTeamName: 'Slavia ženy',
+      awayTeamShortName: 'Slavia',
+      awayClubName: 'Slavia',
+    });
+    expect(names).toEqual({ home: 'Slavia B', away: 'Slavia' });
+  });
+
+  it('a blank or missing short name falls back to the existing rule for that side only', () => {
+    const names = resolveDisplayTeamNames({
+      homeTeamName: 'HC Hostivař B',
+      homeTeamShortName: '   ',
+      homeClubName: 'Hostivař',
+      awayTeamName: 'President B',
+      awayTeamShortName: ' President B ',
+      awayClubName: 'President',
+    });
+    expect(names).toEqual({ home: 'Hostivař', away: 'President B' });
+  });
+
+  it('equal labels with differing full team names fall back to the full team names', () => {
+    const names = resolveDisplayTeamNames({
+      homeTeamName: 'Litice mladší žáci',
+      homeTeamShortName: 'Litice',
+      homeClubName: 'Litice',
+      awayTeamName: 'Litice starší žáci',
+      awayTeamShortName: 'litice ',
+      awayClubName: 'Litice',
+    });
+    expect(names).toEqual({ home: 'Litice mladší žáci', away: 'Litice starší žáci' });
+  });
+
+  it('one team row on both sides stays as it is (zcom 78997)', () => {
+    const names = resolveDisplayTeamNames({
+      homeTeamName: 'Rakovník minibenjamínci',
+      homeTeamShortName: 'Rakovník',
+      homeClubName: 'Rakovník',
+      awayTeamName: 'Rakovník minibenjamínci',
+      awayTeamShortName: 'Rakovník',
+      awayClubName: 'Rakovník',
+    });
+    expect(names).toEqual({ home: 'Rakovník', away: 'Rakovník' });
+  });
+
+  it('the null short name of the Convex payload is treated as absent', () => {
+    const names = resolveDisplayTeamNames({
+      homeTeamName: 'Slavia ženy',
+      homeTeamShortName: null,
+      homeClubName: 'Slavia',
+      awayTeamName: 'Praga ženy',
+      awayTeamShortName: null,
+      awayClubName: 'Praga',
+    });
+    expect(names).toEqual({ home: 'Slavia', away: 'Praga' });
+  });
+});

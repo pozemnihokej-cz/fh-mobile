@@ -1,6 +1,6 @@
 import React, { useMemo } from 'react';
 import ReactDOM from 'react-dom/client';
-import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
+import { BrowserRouter, Navigate, Route, Routes, useParams } from 'react-router-dom';
 import { ConvexProvider, ConvexReactClient } from 'convex/react';
 import { ThemeProvider } from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
@@ -31,6 +31,7 @@ import NotificationsPage from './routes/NotificationsPage';
 import ProfilePage from './routes/ProfilePage';
 import NotFoundPage from './routes/NotFoundPage';
 import { QueryErrorBoundary } from './components/QueryErrorBoundary';
+import { unreleasedPagesHidden } from './lib/releaseGate';
 
 initI18n();
 
@@ -92,6 +93,15 @@ function MobileThemeBridge({ children }: { children: React.ReactNode }) {
       {children}
     </ThemeProvider>
   );
+}
+
+// spec-fan-app-prod-cleanup-and-team-names D1: a screen hidden on production
+// lands on the tenant's match list. The target is ABSOLUTE on purpose: a
+// relative `<Navigate to="matches">` resolves against the route that renders
+// it, so `/<slug>/standings` went to `/<slug>/standings/matches` -> not found.
+function ToTenantMatches(): JSX.Element {
+  const { slug } = useParams<{ slug: string }>();
+  return <Navigate to={`/${encodeURIComponent(slug ?? '')}/matches`} replace />;
 }
 
 // CHANGE-055 route table:
@@ -177,17 +187,17 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
                     />
                     {/* PRD-055 Phase 2: supabase-js fan screens (own AsyncBoundary error path) */}
                     <Route path="matches/:matchId/lineup" element={<LineupPage />} />
-                    {import.meta.env.PROD && import.meta.env.VITE_ENABLE_UNRELEASED_PAGES !== 'true' ? (
+                    {unreleasedPagesHidden() ? (
                       <>
-                        <Route path="standings" element={<Navigate to="matches" replace />} />
-                        <Route path="schedule" element={<Navigate to="matches" replace />} />
-                        <Route path="search" element={<Navigate to="matches" replace />} />
-                        <Route path="clubs/:clubId" element={<Navigate to="matches" replace />} />
-                        <Route path="players/:personId" element={<Navigate to="matches" replace />} />
-                        <Route path="onboarding" element={<Navigate to="matches" replace />} />
-                        <Route path="news" element={<Navigate to="matches" replace />} />
-                        <Route path="notifications" element={<Navigate to="matches" replace />} />
-                        <Route path="profile" element={<Navigate to="matches" replace />} />
+                        <Route path="standings" element={<ToTenantMatches />} />
+                        <Route path="schedule" element={<ToTenantMatches />} />
+                        <Route path="search" element={<ToTenantMatches />} />
+                        <Route path="clubs/:clubId" element={<ToTenantMatches />} />
+                        <Route path="players/:personId" element={<ToTenantMatches />} />
+                        <Route path="onboarding" element={<ToTenantMatches />} />
+                        <Route path="news" element={<ToTenantMatches />} />
+                        <Route path="notifications" element={<ToTenantMatches />} />
+                        <Route path="profile" element={<ToTenantMatches />} />
                       </>
                     ) : (
                       <>
