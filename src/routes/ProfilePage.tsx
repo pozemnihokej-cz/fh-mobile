@@ -6,6 +6,7 @@ import { useTranslation } from '@fh/i18n';
 import { AuthForm } from '../components/AuthForm';
 import { useFanPreferences } from '../lib/useFanPreferences';
 import { useTenantContext } from './TenantContext';
+import { unreleasedPagesHidden } from '../lib/releaseGate';
 
 /**
  * PRD-034 Spec-AC-13 / -14 / -15 — auth-aware Profile at `/<slug>/profile`.
@@ -111,7 +112,7 @@ export default function ProfilePage(): JSX.Element {
         </Box>
 
         {!isAuthenticated ? (
-          import.meta.env.PROD && import.meta.env.VITE_ENABLE_UNRELEASED_PAGES !== 'true' ? (
+          unreleasedPagesHidden() ? (
             <Box sx={{ ...cardSx, textAlign: 'center', py: 3 }}>
               <Typography sx={{ ...typeScale.body, color: 'text.secondary' }}>
                 Přihlášení a vytváření uživatelských účtů není v této verzi k dispozici.

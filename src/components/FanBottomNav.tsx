@@ -3,6 +3,7 @@ import { Box, BottomNavigation, BottomNavigationAction, alpha, useTheme } from '
 import { FhIcon, focusRing, type FhIconName } from '@fh/ui';
 import { useTranslation } from '@fh/i18n';
 import { useTenantContext } from '../routes/TenantContext';
+import { unreleasedPagesHidden } from '../lib/releaseGate';
 
 /**
  * PRD-055 Phase 2 (Spec-AC-04): the fan bottom navigation. Pinned tab bar that
@@ -32,7 +33,7 @@ export function FanBottomNav(): JSX.Element | null {
 
   if (!slug) return null;
   // In production, secondary fan screens (standings, schedule, search, profile) are hidden
-  if (import.meta.env.PROD && import.meta.env.VITE_ENABLE_UNRELEASED_PAGES !== 'true') {
+  if (unreleasedPagesHidden()) {
     return null;
   }
 

@@ -23,6 +23,13 @@ export interface MatchCardData {
    */
   homeClubName?: string | null;
   awayClubName?: string | null;
+  /**
+   * spec-fan-app-prod-cleanup-and-team-names D3: the curated team label from
+   * Convex (`teams.shortName`, e.g. "Slavia B"). First choice of
+   * `resolveDisplayTeamNames`; keeps a reserve team's letter.
+   */
+  homeTeamShortName?: string | null;
+  awayTeamShortName?: string | null;
   homeClubLogo?: string | null;
   awayClubLogo?: string | null;
   homeTeamLogo?: string | null;
