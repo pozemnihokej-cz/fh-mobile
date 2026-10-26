@@ -54,7 +54,7 @@ vi.mock('@fh/ui', async (importOriginal) => {
     MatchClock: () => null,
     LiveEventToast: () => null,
     useTimeline: () => ({ events: [], derivedState: { score: { home: 0, away: 0 }, activeSuspensions: [] }, loaded: false }),
-    useLiveMatchClock: () => ({ time: 0, totalElapsed: 0, phase: '1Q', running: false, colonVisible: true, loaded: true }),
+    useLiveMatchClock: () => ({ time: 0, timelineElapsed: 0, phase: '1Q', running: false, colonVisible: true, loaded: true }),
     useTimelineEventBursts: () => ({ current: null }),
   };
 });

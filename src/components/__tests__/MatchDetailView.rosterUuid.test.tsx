@@ -58,7 +58,7 @@ vi.mock('@fh/ui', async (importOriginal) => {
     },
     useLiveMatchClock: (id: unknown) => {
       childIds.clock.push(id);
-      return { time: 0, totalElapsed: 0, phase: '1Q', running: false, colonVisible: true, loaded: true };
+      return { time: 0, timelineElapsed: 0, phase: '1Q', running: false, colonVisible: true, loaded: true };
     },
     useTimelineEventBursts: () => ({ current: null }),
   };
