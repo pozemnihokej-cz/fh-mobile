@@ -31,7 +31,7 @@ const scoreboardLive = vi.hoisted(() => ({ value: undefined as unknown }));
 const liveClockState = vi.hoisted(() => ({
   value: {
     time: 0,
-    totalElapsed: 0,
+    timelineElapsed: 0,
     phase: '1Q',
     running: true,
     colonVisible: true,
@@ -129,7 +129,7 @@ describe('MatchDetailView live derivation (Spec-AC-04)', () => {
   it('forwards cornerRunning and cornerTime to MatchClock when corner countdown is active', () => {
     liveClockState.value = {
       time: 600,
-      totalElapsed: 300,
+      timelineElapsed: 300,
       phase: '2Q',
       running: false,
       colonVisible: true,

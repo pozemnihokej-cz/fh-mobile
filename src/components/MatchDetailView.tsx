@@ -84,6 +84,9 @@ export function MatchDetailView({
       partType: cfg?.partType,
       gameTime: cfg?.gameTime,
       pauseTimes: cfg?.pauseTimes,
+      // spec-fu-eventtime-break-inclusive-readers-v2 D4: a completed match
+      // lifts the timeline clock (a finished match never reaches POST).
+      matchCompleted: (match as any).status === 'completed',
     };
   }, [match]);
 
@@ -92,14 +95,16 @@ export function MatchDetailView({
   const {
     time: elapsed,
     phase,
-    totalElapsed,
+    // spec-fu-eventtime-break-inclusive-readers-v2: elapsed PLAYING seconds
+    // (+Infinity in SO / POST), the scale a stored event `time` is on.
+    timelineElapsed,
     running: isRunning,
     colonVisible,
     loaded: clockLoaded,
     cornerRunning,
     cornerTime,
   } = useLiveMatchClock(canonicalMatchId, matchConfig);
-  const { events, derivedState, loaded: timelineLoaded } = useTimeline(canonicalMatchId, totalElapsed);
+  const { events, derivedState, loaded: timelineLoaded } = useTimeline(canonicalMatchId, timelineElapsed);
 
   // Convex live query for match roster (OM parity — holds complete rosters)
   const rosterQuery = (api as any)?.functions?.roster?.list;
@@ -135,7 +140,7 @@ export function MatchDetailView({
 
   // Fan notification surface: a Snackbar fires every time a new
   // highlightable event becomes time-visible.
-  const { current: latestBurst } = useTimelineEventBursts(events, totalElapsed, {
+  const { current: latestBurst } = useTimelineEventBursts(events, timelineElapsed, {
     durationMs: 6_000,
     types: ['goal', 'card', 'shootout_goal'],
     loaded: timelineLoaded,

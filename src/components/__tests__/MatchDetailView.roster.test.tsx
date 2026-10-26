@@ -34,7 +34,7 @@ vi.mock('@fh/ui', () => ({
   MatchCardSkeleton: () => null,
   FhIcon: ({ name }: { name: string }) => <span data-testid={`fh-icon-${name}`} />,
   useTimeline: () => ({ events: [], derivedState: { score: { home: 0, away: 0 }, activeSuspensions: [] } }),
-  useLiveMatchClock: () => ({ time: 0, totalElapsed: 0, phase: '1Q', running: true, colonVisible: true, loaded: true }),
+  useLiveMatchClock: () => ({ time: 0, timelineElapsed: 0, phase: '1Q', running: true, colonVisible: true, loaded: true }),
   useTimelineEventBursts: () => ({ current: null }),
   focusRing: () => ({}),
   typeScale: { body: {}, bodyStrong: {}, h2: {}, caption: {} },

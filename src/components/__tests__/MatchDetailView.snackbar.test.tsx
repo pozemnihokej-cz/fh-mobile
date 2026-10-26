@@ -76,7 +76,7 @@ vi.mock('@fh/ui', () => ({
   }),
   useLiveMatchClock: () => ({
     time: 0,
-    totalElapsed: 0,
+    timelineElapsed: 0,
     phase: '1Q',
     running: false,
     cornerRunning: false,
