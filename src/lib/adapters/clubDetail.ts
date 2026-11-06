@@ -1,4 +1,5 @@
 import { unwrap, type SupabaseLike } from './supabaseRead';
+import { isSingleTeamMatch } from '@fh/schema';
 import { toImageUrl } from '../runtimeUrls';
 
 /**
@@ -33,6 +34,8 @@ export interface ClubMatchRow {
   away_team_id: string | null;
   home_score: number | null;
   away_score: number | null;
+  /** spec-match-display-no-score-one-team-shootout: result decided by a shootout. */
+  decided_by_shootout?: boolean | null;
 }
 
 export interface ClubTeam {
@@ -50,6 +53,10 @@ export interface ClubFixture {
   awayName: string;
   homeScore: number | null;
   awayScore: number | null;
+  /** The result was decided by a shootout (marker after the score). */
+  shootout?: boolean;
+  /** One-team event (same team on both sides): shown as that team alone. */
+  singleTeam?: boolean;
 }
 
 export interface ClubDetail {
@@ -92,6 +99,9 @@ export function toClubDetail(
       awayName: teamName(m.away_team_id),
       homeScore: m.home_score,
       awayScore: m.away_score,
+      // PR #35 review: the marker belongs to a score; a fixture without one carries none.
+      shootout: m.decided_by_shootout === true && typeof m.home_score === 'number' && typeof m.away_score === 'number',
+      singleTeam: isSingleTeamMatch(m.home_team_id, m.away_team_id),
     }));
 
   return {
@@ -133,7 +143,7 @@ export async function fetchClubDetail(
     matches = unwrap<ClubMatchRow[]>(
       await supabase
         .from('matches')
-        .select('id,date,status,home_team_id,away_team_id,home_score,away_score')
+        .select('id,date,status,home_team_id,away_team_id,home_score,away_score,decided_by_shootout')
         .or(`home_team_id.in.${idList},away_team_id.in.${idList}`)
         .order('date', { ascending: false })
         .limit(30),
