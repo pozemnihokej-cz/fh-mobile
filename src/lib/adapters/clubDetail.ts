@@ -99,7 +99,8 @@ export function toClubDetail(
       awayName: teamName(m.away_team_id),
       homeScore: m.home_score,
       awayScore: m.away_score,
-      shootout: m.decided_by_shootout === true,
+      // PR #35 review: the marker belongs to a score; a fixture without one carries none.
+      shootout: m.decided_by_shootout === true && typeof m.home_score === 'number' && typeof m.away_score === 'number',
       singleTeam: isSingleTeamMatch(m.home_team_id, m.away_team_id),
     }));
 

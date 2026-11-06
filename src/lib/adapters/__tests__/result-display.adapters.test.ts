@@ -32,7 +32,7 @@ describe('club detail fixtures', () => {
   it('carries the shootout flag, keeps NULL scores NULL, flags a one-team event', () => {
     const d = toClubDetail(club, teams, [
       match({ id: 'so', home_score: 3, away_score: 2, decided_by_shootout: true }),
-      match({ id: 'null', date: 1 }),
+      match({ id: 'null', date: 1, decided_by_shootout: true }), // a flag without a score carries no marker (PR #35 review)
       match({ id: 'one', date: 2, away_team_id: 'T1' }),
     ]);
     const byId = Object.fromEntries(d.fixtures.map((f) => [f.id, f]));
