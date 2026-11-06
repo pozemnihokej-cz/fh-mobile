@@ -1,4 +1,5 @@
 import { unwrap, type SupabaseLike } from './supabaseRead';
+import { isSingleTeamMatch } from '@fh/schema';
 import { toImageUrl } from '../runtimeUrls';
 
 /**
@@ -38,6 +39,8 @@ export interface ScheduleMatch {
   away: ScheduleSide;
   homeScore: number | null;
   awayScore: number | null;
+  /** spec-match-display-no-score-one-team-shootout: one-team event, shown as that team alone. */
+  singleTeam?: boolean;
 }
 
 export interface ScheduleDay {
@@ -94,6 +97,7 @@ export function groupMatchesByDay(
       away: teamSide(m.away_team_id, byId),
       homeScore: m.home_score,
       awayScore: m.away_score,
+      singleTeam: isSingleTeamMatch(m.home_team_id, m.away_team_id),
     });
   }
   return [...days.values()];

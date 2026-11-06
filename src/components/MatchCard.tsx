@@ -2,6 +2,8 @@ import { MatchCard as UIMatchCard } from '@fh/ui';
 import { isMatchGenuinelyLive } from '@fh/schema';
 import { toImageUrl } from '../lib/runtimeUrls';
 import { resolveDisplayTeamNames } from '../lib/teamNames';
+import { completedFanScore, isFanSingleTeam } from '../lib/matchResult';
+import { useTranslation } from '@fh/i18n';
 
 /**
  * CHANGE-055 / mobile DS adoption: the styled presentation now lives in
@@ -50,6 +52,17 @@ export interface MatchCardData {
   liveRunning?: boolean;
   venue?: string | null;
   liveState?: { phase?: string };
+  /**
+   * spec-match-display-no-score-one-team-shootout D4: the timeline play record,
+   * the mirrored Postgres result (null = none) and the shootout flag, from
+   * Convex `matches.list`.
+   */
+  hasPlayRecord?: boolean;
+  resultHomeScore?: number | null;
+  resultAwayScore?: number | null;
+  decidedByShootout?: boolean;
+  homeTeamId?: string | null;
+  awayTeamId?: string | null;
 }
 
 export function MatchCard({
@@ -85,12 +98,21 @@ export function MatchCard({
   // Scheduled fixtures must NOT show score (rendering 0:0 reads as a goalless draw).
   const isPlayedOrLive = match.status === 'completed' || liveness || isAwaitingClosure;
 
-  const resolvedScore = isPlayedOrLive
-    ? (match.score ??
-       (match.homeScore != null || match.awayScore != null
-         ? { home: match.homeScore ?? 0, away: match.awayScore ?? 0 }
-         : undefined))
-    : undefined;
+  // spec-match-display-no-score-one-team-shootout D5: a completed match takes
+  // its score from completedFanScore (timeline for an OM-run match, the mirrored
+  // result otherwise — none at all for a result-less one). Live and
+  // awaiting-closure matches keep the timeline score.
+  const isFinal = match.status === 'completed' && !liveness && !isAwaitingClosure;
+  const finalScore = isFinal ? completedFanScore(match) : null;
+  const resolvedScore = isFinal
+    ? (finalScore ?? undefined)
+    : isPlayedOrLive
+      ? (match.score ??
+         (match.homeScore != null || match.awayScore != null
+           ? { home: match.homeScore ?? 0, away: match.awayScore ?? 0 }
+           : undefined))
+      : undefined;
+  const { t } = useTranslation();
 
   const { home: homeName, away: awayName } = resolveDisplayTeamNames(match);
 
@@ -119,6 +141,10 @@ export function MatchCard({
       onToggleStar={onToggleStar}
       onClick={onClick}
       compact={compact}
+      singleTeam={isFanSingleTeam(match)}
+      playedLabel={t('matchResult.played')}
+      shootoutLabel={t('matchResult.shootoutShort')}
+      shootoutTitle={t('matchResult.shootoutLong')}
     />
   );
 }

@@ -10,6 +10,8 @@ import { useFanPreferences } from '../lib/useFanPreferences';
 import { resolveDisplayTeamNames } from '../lib/teamNames';
 import { useTenantContext } from './TenantContext';
 import { childReadMatchId } from '../lib/matchReadId';
+import { completedFanScore, isFanSingleTeam } from '../lib/matchResult';
+import { useTranslation } from '@fh/i18n';
 
 /**
  * CHANGE-055 Spec-AC-07: `/<slug>/matches/<matchId>` direct deep link.
@@ -21,6 +23,7 @@ import { childReadMatchId } from '../lib/matchReadId';
 export default function MatchDetailPage(): JSX.Element {
   const { matchId } = useParams<{ matchId: string }>();
   const theme = useTheme();
+  const { t } = useTranslation();
   const { isMatchSaved, toggleMatch } = useFanPreferences();
   const [copied, setCopied] = useState(false);
 
@@ -67,8 +70,18 @@ export default function MatchDetailPage(): JSX.Element {
 
   const isPlayedOrLive = match ? isLive || match.status === 'completed' || match.status === 'in_progress' : false;
   const { home: homeName, away: awayName } = resolveDisplayTeamNames(match);
-  const hasScore = match && (match.homeScore != null || match.awayScore != null);
-  const scoreStr = hasScore ? `${match.homeScore ?? 0} : ${match.awayScore ?? 0}` : '0 : 0';
+  // spec-match-display-no-score-one-team-shootout D5/D6: a completed match shows
+  // its final score (timeline for an OM-run match, the mirrored result
+  // otherwise) with the shootout marker, or the played label when it has no
+  // result — never a made-up "0 : 0". Live / in-progress keep the timeline.
+  const isFinal = match ? match.status === 'completed' && !isLive : false;
+  const finalScore = match && isFinal ? completedFanScore(match) : null;
+  const singleTeam = match ? isFanSingleTeam(match) : false;
+  const scoreStr = isFinal
+    ? finalScore
+      ? `${finalScore.home} : ${finalScore.away}${finalScore.shootout ? ` ${t('matchResult.shootoutShort')}` : ''}`
+      : t('matchResult.played')
+    : `${match?.homeScore ?? 0} : ${match?.awayScore ?? 0}`;
 
   const headerTitle = match ? (
     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, minWidth: 0 }}>
@@ -77,6 +90,8 @@ export default function MatchDetailPage(): JSX.Element {
       </Typography>
       {isPlayedOrLive ? (
         <Typography
+          data-testid="match-detail-header-score"
+          title={finalScore?.shootout ? t('matchResult.shootoutLong') : undefined}
           sx={{
             fontWeight: 900,
             fontSize: { xs: '0.88rem', sm: '1rem' },
@@ -92,14 +107,17 @@ export default function MatchDetailPage(): JSX.Element {
         >
           {scoreStr}
         </Typography>
-      ) : (
+      ) : singleTeam ? null : (
         <Typography sx={{ color: 'text.secondary', fontWeight: 700, fontSize: '0.8rem', mx: 0.25 }}>
           vs
         </Typography>
       )}
-      <Typography variant="body1" noWrap sx={{ fontWeight: 800, color: 'common.white', fontSize: { xs: '0.88rem', sm: '0.98rem' } }}>
-        {awayName}
-      </Typography>
+      {/* A one-team event names its team once (spec-match-display D6). */}
+      {!singleTeam && (
+        <Typography variant="body1" noWrap sx={{ fontWeight: 800, color: 'common.white', fontSize: { xs: '0.88rem', sm: '0.98rem' } }}>
+          {awayName}
+        </Typography>
+      )}
     </Box>
   ) : (
     'Detail zápasu'

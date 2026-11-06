@@ -1,3 +1,4 @@
+import { isSingleTeamMatch } from '@fh/schema';
 import { unwrap, type SupabaseLike } from './supabaseRead';
 import { toImageUrl } from '../runtimeUrls';
 
@@ -56,6 +57,8 @@ export interface PlayerMatchRow {
   away_team_id: string | null;
   home_score: number | null;
   away_score: number | null;
+  /** spec-match-display-no-score-one-team-shootout: result decided by a shootout. */
+  decided_by_shootout?: boolean | null;
 }
 
 export interface PlayerTeamRow {
@@ -69,6 +72,10 @@ export interface RecentAppearance {
   date: number | null;
   opponent: string;
   result: string | null;
+  /** The result was decided by a shootout (marker after the result). */
+  shootout?: boolean;
+  /** One-team event: `opponent` is the player's own team, shown without "vs". */
+  singleTeam?: boolean;
 }
 
 export interface PlayerStats {
@@ -142,7 +149,15 @@ export function computePlayerStats(
         ? `${match.home_score}:${match.away_score}`
         : `${match.away_score}:${match.home_score}`;
     }
-    recent.push({ matchId: match.id, date: match.date, opponent, result });
+    const singleTeam = isSingleTeamMatch(match.home_team_id, match.away_team_id);
+    recent.push({
+      matchId: match.id,
+      date: match.date,
+      opponent,
+      result,
+      shootout: result != null && match.decided_by_shootout === true,
+      singleTeam,
+    });
   }
   recent.sort((a, b) => (b.date ?? 0) - (a.date ?? 0));
 
@@ -207,7 +222,7 @@ export async function fetchPlayerDetail(
     matches = unwrap<PlayerMatchRow[]>(
       await supabase
         .from('matches')
-        .select('id,date,home_team_id,away_team_id,home_score,away_score')
+        .select('id,date,home_team_id,away_team_id,home_score,away_score,decided_by_shootout')
         .in('id', matchIds),
     );
     const teamIds = [

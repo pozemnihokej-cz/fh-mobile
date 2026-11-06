@@ -148,11 +148,16 @@ export default function ClubDetailPage(): JSX.Element {
                         sx={{ display: 'flex', alignItems: 'center', gap: 1, p: 1.25, borderRadius: '12px', bgcolor: alpha(white, 0.04), border: `1px solid ${alpha(white, 0.06)}` }}
                       >
                         <Typography sx={{ ...typeScale.body, flex: 1, fontSize: '0.85rem', color: 'common.white' }} noWrap>
-                          {f.homeName} — {f.awayName}
+                          {/* spec-match-display D6: a one-team event names the team once. */}
+                          {f.singleTeam ? f.homeName : `${f.homeName} — ${f.awayName}`}
                         </Typography>
-                        <Typography sx={{ ...typeScale.bodyStrong, fontSize: '0.85rem', color: 'text.secondary', fontVariantNumeric: 'tabular-nums' }}>
+                        <Typography
+                          data-testid="club-fixture-score"
+                          title={f.shootout ? t('matchResult.shootoutLong') : undefined}
+                          sx={{ ...typeScale.bodyStrong, fontSize: '0.85rem', color: 'text.secondary', fontVariantNumeric: 'tabular-nums' }}
+                        >
                           {typeof f.homeScore === 'number' && typeof f.awayScore === 'number'
-                            ? `${f.homeScore}:${f.awayScore}`
+                            ? `${f.homeScore}:${f.awayScore}${f.shootout ? ` ${t('matchResult.shootoutShort')}` : ''}`
                             : '–'}
                         </Typography>
                       </Box>

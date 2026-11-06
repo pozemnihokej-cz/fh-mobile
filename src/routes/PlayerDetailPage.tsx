@@ -140,11 +140,17 @@ export default function PlayerDetailPage(): JSX.Element {
                           sx={{ display: 'flex', alignItems: 'center', gap: 1.5, p: 1.25, borderRadius: '12px', bgcolor: alpha(white, 0.04) }}
                         >
                           <Typography sx={{ ...typeScale.body, flex: 1, fontSize: '0.88rem', color: 'common.white' }} noWrap>
-                            {t('mobile.fan.playerDetail.vs')} {r.opponent}
+                            {/* spec-match-display D6: a one-team event names the team alone, no "vs". */}
+                            {r.singleTeam ? r.opponent : `${t('mobile.fan.playerDetail.vs')} ${r.opponent}`}
                           </Typography>
                           {r.result && (
-                            <Typography sx={{ ...typeScale.bodyStrong, fontSize: '0.85rem', color: 'text.secondary', fontVariantNumeric: 'tabular-nums' }}>
+                            <Typography
+                              data-testid="player-recent-result"
+                              title={r.shootout ? t('matchResult.shootoutLong') : undefined}
+                              sx={{ ...typeScale.bodyStrong, fontSize: '0.85rem', color: 'text.secondary', fontVariantNumeric: 'tabular-nums' }}
+                            >
                               {r.result}
+                              {r.shootout ? ` ${t('matchResult.shootoutShort')}` : ''}
                             </Typography>
                           )}
                         </Box>

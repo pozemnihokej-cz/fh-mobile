@@ -93,9 +93,12 @@ export default function SchedulePage(): JSX.Element {
                       </Box>
                       <Avatar src={g.home.logoUrl ?? undefined} sx={{ width: 28, height: 28, bgcolor: alpha(white, 0.08) }} />
                       <Typography sx={{ ...typeScale.bodyStrong, fontSize: '0.82rem', flex: 1, textAlign: 'center', color: 'common.white' }} noWrap>
-                        {g.home.name} — {g.away.name}
+                        {/* spec-match-display D6: a one-team event names the team once. */}
+                        {g.singleTeam ? g.home.name : `${g.home.name} — ${g.away.name}`}
                       </Typography>
-                      <Avatar src={g.away.logoUrl ?? undefined} sx={{ width: 28, height: 28, bgcolor: alpha(white, 0.08) }} />
+                      {!g.singleTeam && (
+                        <Avatar src={g.away.logoUrl ?? undefined} sx={{ width: 28, height: 28, bgcolor: alpha(white, 0.08) }} />
+                      )}
                     </Box>
                   ))}
                 </Stack>

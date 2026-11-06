@@ -45,9 +45,11 @@ import {
 import { PlayerDetailModal } from './PlayerDetailModal';
 import { formatPositionCz } from '../lib/playerUtils';
 import { resolveDisplayTeamNames } from '../lib/teamNames';
+import { completedFanScore, isFanSingleTeam } from '../lib/matchResult';
 import { buildMatchListHref, googleMapsDirectionsHref } from '../lib/matchListDeepLink';
 import { useTenantContext } from '../routes/TenantContext';
 import { childReadMatchId } from '../lib/matchReadId';
+import { useTranslation } from '@fh/i18n';
 
 export function MatchDetailView({
   matchId,
@@ -59,6 +61,7 @@ export function MatchDetailView({
   onToggleStar: (e: React.MouseEvent) => void;
 }): JSX.Element {
   const theme = useTheme();
+  const { t } = useTranslation();
   const { slug, tenantId } = useTenantContext();
   const tabBarRef = useRef<HTMLDivElement | null>(null);
   const [tunnelTab, setTunnelTab] = useState<'timeline' | 'overview' | 'roster'>('timeline');
@@ -510,11 +513,20 @@ export function MatchDetailView({
           league={match.leagueName}
           home={{ name: displayHome, logo: toImageUrl(match.homeClubLogo ?? match.homeTeamLogo) }}
           away={{ name: displayAway, logo: toImageUrl(match.awayClubLogo ?? match.awayTeamLogo) }}
+          // spec-match-display-no-score-one-team-shootout D5/D6: a completed
+          // match shows its final score (the live-derived timeline for an OM-run
+          // match, the mirrored result otherwise) with the shootout line, or the
+          // played label instead of a made-up 0 : 0.
           score={
-            isLive || match.status === 'completed' || (match.status === 'in_progress' && !isLive)
-              ? { home: derivedState.score.home, away: derivedState.score.away }
-              : null
+            match.status === 'completed' && !isLive
+              ? completedFanScore(match, { home: derivedState.score.home, away: derivedState.score.away })
+              : isLive || (match.status === 'in_progress' && !isLive)
+                ? { home: derivedState.score.home, away: derivedState.score.away }
+                : null
           }
+          placeholder={match.status === 'completed' && !isLive ? t('matchResult.played') : undefined}
+          shootoutLabel={t('matchResult.shootoutLong')}
+          singleTeam={isFanSingleTeam(match)}
           dateLabel={matchDateStr}
           location={match.location}
           starred={starred}
