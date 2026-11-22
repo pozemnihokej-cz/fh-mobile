@@ -27,6 +27,7 @@ import { AsyncBoundary } from '../components/AsyncBoundary';
 import { useTenantContext } from './TenantContext';
 import { useFanPreferences } from '../lib/useFanPreferences';
 import { useNearestVenue } from '../hooks/useNearestVenue';
+import { useMatchYoutubeStreams } from '../hooks/useMatchYoutubeStreams';
 import { resolveDisplayTeamNames } from '../lib/teamNames';
 import {
   MATCH_LIST_DEEP_LINK_PARAMS,
@@ -401,6 +402,12 @@ export default function MatchesPage(): JSX.Element {
       totalCount: filteredMatches.length,
     };
   }, [filteredMatches, daysBack, daysForward]);
+
+  const visibleMatchIds = useMemo(
+    () => timeline.days.flatMap((day) => day.items.map((m) => m.supabaseId)),
+    [timeline.days],
+  );
+  const youtubeStreams = useMatchYoutubeStreams(tenantId, visibleMatchIds);
 
   /**
    * One step further into the past. While the fetched window still holds an
@@ -954,6 +961,7 @@ export default function MatchesPage(): JSX.Element {
                       <MatchCard
                         match={m}
                         compact
+                        hasYoutubeStream={youtubeStreams.has(m.supabaseId)}
                         isStarred={isMatchSaved(m.supabaseId)}
                         onToggleStar={(e) => {
                           e.stopPropagation();

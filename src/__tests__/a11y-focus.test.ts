@@ -103,12 +103,6 @@ const FOCUS_ALLOW: Record<string, { marker: string; reason: string }[]> = {
       reason: 'ErrorState retry button — MUI contained Button default focus-visible',
     },
   ],
-  'components/MatchDetailView.tsx': [
-    {
-      marker: 'youtube.com/watch',
-      reason: 'external YouTube "watch" link — MUI outlined Button default focus-visible',
-    },
-  ],
 };
 
 /**
