@@ -13,6 +13,7 @@ import { MatchCard, type MatchCardData } from '../components/MatchCard';
 import { AsyncBoundary } from '../components/AsyncBoundary';
 import { useTenantContext } from './TenantContext';
 import { useFanPreferences } from '../lib/useFanPreferences';
+import { useMatchYoutubeStreams } from '../hooks/useMatchYoutubeStreams';
 
 function startOfDay(ts: number): number {
   const d = new Date(ts);
@@ -72,6 +73,9 @@ export default function LiveCenter(): JSX.Element {
       .sort((a, b) => b.date - a.date);
   }, [matches]);
 
+  const liveMatchIds = useMemo(() => live.map((m) => m.supabaseId), [live]);
+  const youtubeStreams = useMatchYoutubeStreams(tenantId, liveMatchIds);
+
   return (
     <Box sx={{ minHeight: '100vh', bgcolor: 'transparent', color: 'common.white', pb: 12 }}>
       <StickyGlassHeader
@@ -125,6 +129,7 @@ export default function LiveCenter(): JSX.Element {
               <MatchCard
                 key={m._id}
                 match={m}
+                hasYoutubeStream={youtubeStreams.has(m.supabaseId)}
                 isStarred={isMatchSaved(m.supabaseId)}
                 onToggleStar={(e) => {
                   e.stopPropagation();

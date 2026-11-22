@@ -49,6 +49,8 @@ import { completedFanScore, isFanSingleTeam } from '../lib/matchResult';
 import { buildMatchListHref, googleMapsDirectionsHref } from '../lib/matchListDeepLink';
 import { useTenantContext } from '../routes/TenantContext';
 import { childReadMatchId } from '../lib/matchReadId';
+import { isPublicYoutubeStreamLive } from '../lib/adapters/youtubeStreams';
+import { useMatchYoutubeStream } from '../hooks/useMatchYoutubeStreams';
 import { useTranslation } from '@fh/i18n';
 
 export function MatchDetailView({
@@ -80,6 +82,7 @@ export function MatchDetailView({
   // ISSUE-212 / SPEC-208 D5: every child read (roster, timeline, clock, lineup) uses the resolved UUID (see
   // childReadMatchId), never the raw URL number.
   const canonicalMatchId = childReadMatchId(matchId, match);
+  const youtubeStream = useMatchYoutubeStream(tenantId, canonicalMatchId);
   const matchConfig = useMemo(() => {
     if (!match) return undefined;
     const cfg = (match as any).config;
@@ -221,9 +224,6 @@ export function MatchDetailView({
     .venueInfo;
   const mapsHref = googleMapsDirectionsHref(venueInfo);
   const venueLabel = match.location || venueInfo?.name || 'místo konání';
-
-  const cfg = (match as unknown as { config?: { youtubeVideoId?: string; youtubeUrl?: string } }).config;
-  const youtubeVideoId = cfg?.youtubeVideoId || cfg?.youtubeUrl?.split('v=')[1];
 
   // spec-fan-live-match-detail-usability Spec-AC-04/05: one treatment for all
   // three tabs. A white pill with a near-black label reads on every stop of the
@@ -559,6 +559,102 @@ export function MatchDetailView({
         />
       </Box>
 
+      {/* Visible YouTube stream preview + click-through (test-gated) */}
+      {youtubeStream && (() => {
+        const isStreamLive = isPublicYoutubeStreamLive(youtubeStream);
+        return (
+        <Box data-testid="match-youtube-preview" sx={{ mb: 3 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1, mb: 1.5 }}>
+            <Typography
+              variant="subtitle2"
+              sx={{ fontWeight: 900, color: 'text.primary', display: 'flex', alignItems: 'center', gap: 1 }}
+            >
+              <FhIcon name="youtube" inline sx={{ color: 'error.main' }} />
+              {t('fanYoutube.sectionTitle')}
+            </Typography>
+            <Chip
+              data-testid="match-youtube-status"
+              size="small"
+              label={t(`fanYoutube.status.${youtubeStream.status}`)}
+              sx={{
+                height: 22,
+                fontWeight: 900,
+                fontSize: '0.68rem',
+                letterSpacing: '0.04em',
+                bgcolor: isStreamLive
+                  ? alpha(theme.palette.error.main, 0.2)
+                  : alpha(theme.palette.common.white, 0.1),
+                color: isStreamLive ? 'error.light' : 'common.white',
+                border: `1px solid ${
+                  isStreamLive
+                    ? alpha(theme.palette.error.main, 0.45)
+                    : alpha(theme.palette.common.white, 0.15)
+                }`,
+              }}
+            />
+          </Box>
+
+          <Paper
+            elevation={4}
+            sx={{
+              position: 'relative',
+              paddingTop: '56.25%',
+              overflow: 'hidden',
+              bgcolor: 'common.black',
+              borderRadius: '20px',
+              border: `1px solid ${alpha(theme.palette.common.white, 0.08)}`,
+              boxShadow: `0 12px 40px ${alpha(theme.palette.common.black, 0.5)}`,
+            }}
+          >
+            <iframe
+              data-testid="match-youtube-iframe"
+              style={{
+                position: 'absolute',
+                top: 0,
+                left: 0,
+                width: '100%',
+                height: '100%',
+                border: 0,
+              }}
+              src={youtubeStream.embedUrl}
+              title={t('fanYoutube.playerTitle')}
+              loading="lazy"
+              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+              allowFullScreen
+            />
+          </Paper>
+
+          <Button
+            fullWidth
+            data-testid="match-youtube-open"
+            variant="outlined"
+            color="inherit"
+            startIcon={<FhIcon name="youtube" />}
+            href={youtubeStream.youtubeUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            sx={{
+              mt: 1.5,
+              minHeight: 44,
+              borderRadius: '14px',
+              py: 1.2,
+              fontWeight: 800,
+              fontSize: '0.85rem',
+              bgcolor: alpha(theme.palette.common.white, 0.03),
+              borderColor: alpha(theme.palette.common.white, 0.1),
+              '&:hover': {
+                bgcolor: alpha(theme.palette.common.white, 0.08),
+                borderColor: alpha(theme.palette.common.white, 0.2),
+              },
+              ...focusRing(theme),
+            }}
+          >
+            {t('fanYoutube.openOnYoutube')}
+          </Button>
+        </Box>
+        );
+      })()}
+
       {/* Segmented Tunnel Navigation Tabs */}
       <Box
         ref={tabBarRef}
@@ -729,68 +825,6 @@ export function MatchDetailView({
           </Paper>
 
           {refereesSection}
-
-          {/* YouTube Video Section */}
-          {youtubeVideoId && (
-            <Box sx={{ mb: 3 }}>
-              <Typography variant="subtitle2" sx={{ mb: 2, fontWeight: 900, color: 'text.primary', display: 'flex', alignItems: 'center', gap: 1.25 }}>
-                <Box sx={{ width: 4, height: 16, bgcolor: '#ff0000', borderRadius: 1 }} />
-                VIDEO PŘENOS
-              </Typography>
-
-              <Paper
-                elevation={4}
-                sx={{
-                  position: 'relative',
-                  paddingTop: '56.25%', // 16:9 Aspect Ratio
-                  overflow: 'hidden',
-                  bgcolor: '#000',
-                  borderRadius: '20px',
-                  border: `1px solid ${alpha(theme.palette.common.white, 0.08)}`,
-                  boxShadow: '0 12px 40px rgba(0,0,0,0.5)',
-                }}
-              >
-                <iframe
-                  style={{
-                    position: 'absolute',
-                    top: 0,
-                    left: 0,
-                    width: '100%',
-                    height: '100%',
-                    border: 0,
-                  }}
-                  src={`https://www.youtube.com/embed/${youtubeVideoId}`}
-                  title="YouTube video player"
-                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                  allowFullScreen
-                />
-              </Paper>
-
-              <Button
-                fullWidth
-                variant="outlined"
-                color="inherit"
-                startIcon={<FhIcon name="youtube" />}
-                href={`https://www.youtube.com/watch?v=${youtubeVideoId}`}
-                target="_blank"
-                sx={{
-                  mt: 1.5,
-                  borderRadius: '14px',
-                  py: 1.2,
-                  fontWeight: 800,
-                  fontSize: '0.85rem',
-                  bgcolor: alpha(theme.palette.common.white, 0.03),
-                  borderColor: alpha(theme.palette.common.white, 0.1),
-                  '&:hover': {
-                    bgcolor: alpha(theme.palette.common.white, 0.08),
-                    borderColor: alpha(theme.palette.common.white, 0.2),
-                  },
-                }}
-              >
-                Otevřít v aplikaci YouTube
-              </Button>
-            </Box>
-          )}
         </Box>
       )}
 

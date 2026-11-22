@@ -10,3 +10,15 @@
 export function unreleasedPagesHidden(): boolean {
   return Boolean(import.meta.env.PROD) && import.meta.env.VITE_ENABLE_UNRELEASED_PAGES !== 'true';
 }
+
+/**
+ * spec-fan-app-youtube-stream-preview D-2 — independent test-only gate for
+ * fan-app YouTube stream previews and card indicators.
+ *
+ * Enabled in non-production builds and when VITE_ENABLE_FAN_YOUTUBE_PREVIEW
+ * is 'true'; hidden in production builds by default. Keep `import.meta.env`
+ * literal for Vite static replacement.
+ */
+export function youtubeStreamPreviewEnabled(): boolean {
+  return !import.meta.env.PROD || import.meta.env.VITE_ENABLE_FAN_YOUTUBE_PREVIEW === 'true';
+}

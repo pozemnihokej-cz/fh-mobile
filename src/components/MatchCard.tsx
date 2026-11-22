@@ -71,6 +71,7 @@ export function MatchCard({
   onToggleStar,
   onClick,
   compact = false,
+  hasYoutubeStream = false,
 }: {
   match: MatchCardData;
   isStarred: boolean;
@@ -78,6 +79,8 @@ export function MatchCard({
   onClick: () => void;
   /** CHANGE-194 Bug 2 — render the dense two-row list card. */
   compact?: boolean;
+  /** Whether this match has an eligible current YouTube stream (test-gated). */
+  hasYoutubeStream?: boolean;
 }): JSX.Element {
   // Derive genuine liveness the SAME way OM does (shared @fh/schema derivation):
   // the Supabase→Convex mirror only writes `in_progress` — never `live` — so a
@@ -142,6 +145,8 @@ export function MatchCard({
       onClick={onClick}
       compact={compact}
       singleTeam={isFanSingleTeam(match)}
+      hasYoutubeStream={hasYoutubeStream}
+      youtubeStreamLabel={t('fanYoutube.cardIndicatorLabel')}
       playedLabel={t('matchResult.played')}
       shootoutLabel={t('matchResult.shootoutShort')}
       shootoutTitle={t('matchResult.shootoutLong')}
