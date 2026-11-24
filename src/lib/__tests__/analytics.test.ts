@@ -16,6 +16,19 @@ vi.mock('../supabase', () => ({
 
 import { fetchFanAnalyticsConfig, initGa4, trackPageView } from '../analytics';
 
+/**
+ * gtag.js only processes `dataLayer` entries that are `arguments` objects;
+ * a plain Array is ignored, so no GA4 hit is sent (ga4-gtag-commands-not-sent).
+ */
+function isArgumentsObject(value: unknown): boolean {
+  return Object.prototype.toString.call(value) === '[object Arguments]';
+}
+
+/** Reads each queued gtag command as a plain array of its arguments. */
+function queuedCommands(): unknown[][] {
+  return (window.dataLayer ?? []).map((entry) => Array.from(entry as ArrayLike<unknown>));
+}
+
 describe('TEST-005 (Spec-AC-07, Spec-AC-09): Fan App Analytics Module', () => {
   beforeEach(() => {
     mockQueryResult = { data: null, error: null };
@@ -106,7 +119,10 @@ describe('TEST-005 (Spec-AC-07, Spec-AC-09): Fan App Analytics Module', () => {
       expect(window.__ga4_measurement_id).toBe('G-46L3YVJSHZ');
 
       // Verify gtag calls pushed into dataLayer
-      const dl = window.dataLayer as unknown[][];
+      const dl = queuedCommands();
+      const jsCall = dl.find((call) => call[0] === 'js');
+      expect(jsCall).toBeDefined();
+      expect(jsCall?.[1]).toBeInstanceOf(Date);
       const configCall = dl.find((call) => call[0] === 'config');
       expect(configCall).toBeDefined();
       expect(configCall?.[1]).toBe('G-46L3YVJSHZ');
@@ -116,6 +132,25 @@ describe('TEST-005 (Spec-AC-07, Spec-AC-09): Fan App Analytics Module', () => {
       const script = document.querySelector('script[src*="googletagmanager.com/gtag/js?id=G-46L3YVJSHZ"]') as HTMLScriptElement;
       expect(script).not.toBeNull();
       expect(script.async).toBe(true);
+    });
+
+    it('queues every command as an arguments object, the only shape gtag.js processes (TEST-001, Spec-AC-01)', () => {
+      expect(initGa4('G-46L3YVJSHZ')).toBe(true);
+
+      const dl = window.dataLayer ?? [];
+      expect(dl.length).toBe(2);
+      for (const entry of dl) {
+        expect(Array.isArray(entry)).toBe(false);
+        expect(isArgumentsObject(entry)).toBe(true);
+      }
+    });
+
+    it('adds no queued command when initialized again with the same ID (TEST-004, Spec-AC-04)', () => {
+      initGa4('G-46L3YVJSHZ');
+      const queuedAfterFirstInit = window.dataLayer?.length;
+
+      initGa4('G-46L3YVJSHZ');
+      expect(window.dataLayer?.length).toBe(queuedAfterFirstInit);
     });
 
     it('does not re-inject script or re-initialize if already initialized with the same ID', () => {
@@ -140,7 +175,7 @@ describe('TEST-005 (Spec-AC-07, Spec-AC-09): Fan App Analytics Module', () => {
 
       trackPageView('/matches?tenant=bohemians', 'Matches List');
 
-      const dl = window.dataLayer as unknown[][];
+      const dl = queuedCommands();
       const pageViewCall = dl.find((call) => call[0] === 'event' && call[1] === 'page_view');
       expect(pageViewCall).toBeDefined();
       expect(pageViewCall?.[2]).toEqual(
@@ -149,6 +184,26 @@ describe('TEST-005 (Spec-AC-07, Spec-AC-09): Fan App Analytics Module', () => {
           page_title: 'Matches List',
         }),
       );
+    });
+
+    it('queues the page_view event as an arguments object with its params (TEST-002, Spec-AC-02)', () => {
+      initGa4('G-46L3YVJSHZ');
+      const queuedBefore = window.dataLayer?.length ?? 0;
+
+      trackPageView('/standings', 'Standings');
+
+      const dl = window.dataLayer ?? [];
+      expect(dl.length).toBe(queuedBefore + 1);
+      const entry = dl[dl.length - 1];
+      expect(isArgumentsObject(entry)).toBe(true);
+      const [command, eventName, params] = Array.from(entry as ArrayLike<unknown>);
+      expect(command).toBe('event');
+      expect(eventName).toBe('page_view');
+      expect(params).toEqual({
+        page_path: '/standings',
+        page_title: 'Standings',
+        page_location: window.location.href,
+      });
     });
   });
 });

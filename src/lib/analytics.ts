@@ -64,8 +64,10 @@ export function initGa4(measurementId: string | null | undefined): boolean {
   }
 
   window.dataLayer = window.dataLayer || [];
-  window.gtag = function gtag(...args: unknown[]) {
-    window.dataLayer?.push(args);
+  // gtag.js only processes `arguments` objects from dataLayer; a pushed
+  // Array is ignored and no hit is sent (ga4-gtag-commands-not-sent).
+  window.gtag = function gtag() {
+    window.dataLayer?.push(arguments);
   };
 
   window.gtag('js', new Date());
