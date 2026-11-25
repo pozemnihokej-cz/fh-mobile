@@ -92,4 +92,21 @@ describe('TEST-010 (Spec-AC-10): Sport Live on the shared filter module', () => 
     expect(screen.getByText('Slavia B')).toBeDefined();
     expect(screen.queryByText('Kbely')).toBeNull();
   });
+
+  it('a value carried only by a cancelled match is not offered (the list never shows it)', () => {
+    queryData.matches = [
+      row('1', { homeTeamName: 'Brno', awayTeamName: 'Dolní', location: 'Cheb', leagueName: 'Dorost' }),
+      row('2', { homeTeamName: 'Zrušený', awayTeamName: 'Dolní', location: 'Zrušené hřiště', leagueName: 'Zrušená liga', status: 'cancelled' }),
+    ];
+    renderPage();
+    for (const [label, gone] of [
+      ['Filtrovat podle týmu', 'Zrušený'],
+      ['Filtrovat podle soutěže', 'Zrušená liga'],
+      ['Filtrovat podle hřiště', 'Zrušené hřiště'],
+    ]) {
+      fireEvent.mouseDown(screen.getByLabelText(label));
+      expect(screen.getAllByRole('option').map((o) => o.textContent)).not.toContain(gone);
+      fireEvent.keyDown(screen.getByLabelText(label), { key: 'Escape' });
+    }
+  });
 });

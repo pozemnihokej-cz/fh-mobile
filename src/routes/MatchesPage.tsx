@@ -276,7 +276,11 @@ export default function MatchesPage(): JSX.Element {
   // the filter module Sport Live shares with Sport Operator (`@fh/schema`), one fact record per
   // loaded match — trimmed, unique, in Czech alphabetical order.
   const filterOptions = useMemo(
-    () => matchListFilterOptions(((matches ?? []) as MatchCardData[]).map(fanMatchFilterFacts)),
+    // Cancelled matches never show, so they offer no filter value either (same rule as Sport Operator).
+    () =>
+      matchListFilterOptions(
+        ((matches ?? []) as MatchCardData[]).filter((m) => m.status !== 'cancelled').map(fanMatchFilterFacts),
+      ),
     [matches],
   );
   const availableVenues = filterOptions.venues;
