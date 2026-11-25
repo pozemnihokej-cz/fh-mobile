@@ -19,6 +19,8 @@ import { StickyGlassHeader, EmptyState, MatchCardSkeleton, FhIcon, focusRing } f
 import {
   canRevealEarlier,
   matchListFromDate,
+  matchListFilterOptions,
+  matchPassesListFilters,
   MATCH_LIST_DEFAULT_PAST_DAYS,
   MATCH_LIST_WIDEN_STEP_DAYS,
 } from '@fh/schema';
@@ -28,10 +30,9 @@ import { useTenantContext } from './TenantContext';
 import { useFanPreferences } from '../lib/useFanPreferences';
 import { useNearestVenue } from '../hooks/useNearestVenue';
 import { useMatchYoutubeStreams } from '../hooks/useMatchYoutubeStreams';
-import { resolveDisplayTeamNames } from '../lib/teamNames';
+import { fanMatchFilterFacts } from '../lib/matchListFilters';
 import {
   MATCH_LIST_DEEP_LINK_PARAMS,
-  matchVenueLabel,
   readMatchListDeepLink,
   resolveMatchListDeepLink,
   type ResolvedMatchListFilters,
@@ -271,41 +272,16 @@ export default function MatchesPage(): JSX.Element {
     }
   }, [selectedVenue, selectedLeague, selectedTeam, sessionKey]);
 
-  // Extract unique venues that have matches
-  const availableVenues = useMemo(() => {
-    const set = new Set<string>();
-    if (matches) {
-      for (const m of matches as MatchCardData[]) {
-        const v = matchVenueLabel(m);
-        if (v) set.add(v);
-      }
-    }
-    return Array.from(set).sort();
-  }, [matches]);
-
-  // Extract unique leagues that have matches
-  const availableLeagues = useMemo(() => {
-    const set = new Set<string>();
-    if (matches) {
-      for (const m of matches as MatchCardData[]) {
-        if (m.leagueName && m.leagueName.trim()) set.add(m.leagueName.trim());
-      }
-    }
-    return Array.from(set).sort();
-  }, [matches]);
-
-  // Extract unique teams/clubs that have matches
-  const availableTeams = useMemo(() => {
-    const set = new Set<string>();
-    if (matches) {
-      for (const m of matches as MatchCardData[]) {
-        const { home, away } = resolveDisplayTeamNames(m);
-        if (home && home.trim()) set.add(home.trim());
-        if (away && away.trim()) set.add(away.trim());
-      }
-    }
-    return Array.from(set).sort();
-  }, [matches]);
+  // spec-sport-operator-match-list-filters: the venue, competition and team options come from
+  // the filter module Sport Live shares with Sport Operator (`@fh/schema`), one fact record per
+  // loaded match — trimmed, unique, in Czech alphabetical order.
+  const filterOptions = useMemo(
+    () => matchListFilterOptions(((matches ?? []) as MatchCardData[]).map(fanMatchFilterFacts)),
+    [matches],
+  );
+  const availableVenues = filterOptions.venues;
+  const availableLeagues = filterOptions.leagues;
+  const availableTeams = filterOptions.teams;
 
   // Options for Venue Autocomplete
   const venueOptions = useMemo<VenueOption[]>(() => {
@@ -327,33 +303,13 @@ export default function MatchesPage(): JSX.Element {
     return opts;
   }, [availableVenues, nearbyVenues, geoStatus]);
 
-  // Filter matches by selected venue, league, and team independently
+  // Filter matches by selected venue, league, and team independently (shared module, see above).
   const filteredMatches = useMemo(() => {
     if (!matches) return [];
-    return (matches as MatchCardData[]).filter((m) => {
-      if (m.status === 'cancelled') return false;
-      // Compared trimmed, as the options are built (PRD-072: a deep link resolves to the option name).
-      if (selectedVenue !== 'all') {
-        if (matchVenueLabel(m) !== selectedVenue) return false;
-      }
-      if (selectedLeague !== 'all') {
-        if ((m.leagueName ?? '').trim() !== selectedLeague) return false;
-      }
-      if (selectedTeam !== 'all') {
-        const { home, away } = resolveDisplayTeamNames(m);
-        if (
-          home !== selectedTeam &&
-          away !== selectedTeam &&
-          m.homeTeamName !== selectedTeam &&
-          m.awayTeamName !== selectedTeam &&
-          m.homeClubName !== selectedTeam &&
-          m.awayClubName !== selectedTeam
-        ) {
-          return false;
-        }
-      }
-      return true;
-    });
+    const filters = { venue: selectedVenue, league: selectedLeague, team: selectedTeam };
+    return (matches as MatchCardData[]).filter(
+      (m) => m.status !== 'cancelled' && matchPassesListFilters(fanMatchFilterFacts(m), filters),
+    );
   }, [matches, selectedVenue, selectedLeague, selectedTeam]);
 
   // Group into timeline days (oldest revealed past day at top, future at bottom)
