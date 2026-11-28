@@ -1,9 +1,11 @@
 /**
- * spec-timeline-minute-light-colour TEST-003 (Spec-AC-03).
+ * spec-timeline-minute-green-everywhere TEST-003 (Spec-AC-03); first written for
+ * spec-timeline-minute-light-colour, whose light colour it supersedes.
  *
  * The fan match detail timeline ("ČASOVÁ OSA UTKÁNÍ") at 390 px: the minute of a goal row, of a
- * shoot-out goal ("SO") and of a card row all have one light colour. Before the change a goal's
- * minute was green (primary) and a card's was light (secondary text).
+ * shoot-out goal ("SO") and of a card row all have one colour, the green of the goal's ball icon
+ * (owner 2026-11-28: "Zelené všude", like the Sport Operator control page). Before the change every
+ * minute was light (secondary text).
  *
  * Data arrives through the protocol-correct Convex sync replay (`installConvexReplay`), so the
  * real Convex backend is never touched and nothing is written; the only real read is the
@@ -20,10 +22,10 @@ import { installConvexReplay } from './utils/convexReplay';
 const MATCH_UUID = '00000000-0000-4000-8000-00000000b131';
 const SHOT = process.env.E2E_SHOT_NAME || 'after';
 
-test.describe('spec-timeline-minute-light-colour TEST-003 — every minute is light (390 px)', () => {
+test.describe('spec-timeline-minute-green-everywhere TEST-003 — every minute is green (390 px)', () => {
   test.use({ locale: 'cs-CZ', viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
 
-  test('goal, shoot-out goal and card minutes share one colour', async ({ page }) => {
+  test('goal, shoot-out goal and card minutes share the goal icon\'s green', async ({ page }) => {
     const now = Date.now();
     const detail = {
       _id: 'e2e_timeline_minute_colour',
@@ -68,7 +70,7 @@ test.describe('spec-timeline-minute-light-colour TEST-003 — every minute is li
     const goal = page.getByTestId('timeline-event-g2');
     await expect(goal).toBeVisible({ timeout: 15_000 });
 
-    const dir = `../../../docs/ai/tdd/timeline-minute-light-colour/`;
+    const dir = `../../../docs/ai/tdd/timeline-minute-green-everywhere/`;
     // The page body is a fixed-height scroller, so a full-page shot stops at the fold: the viewport
     // (shoot-out + goal rows) plus the 1st-quarter goal and card rows shot one by one.
     await page.screenshot({ path: fileURLToPath(new URL(`${dir}e2e-390-${SHOT}.png`, import.meta.url)) });
@@ -79,7 +81,13 @@ test.describe('spec-timeline-minute-light-colour TEST-003 — every minute is li
     const colour = (id: string) =>
       page.getByTestId(`timeline-minute-${id}`).evaluate((el) => ({ text: el.textContent, color: getComputedStyle(el).color }));
     const minutes = { g1: await colour('g1'), c1: await colour('c1'), g2: await colour('g2'), s1: await colour('s1') };
-    console.log(`[TEST-003] ${SHOT}: ${JSON.stringify(minutes)}`);
+    // The goal's ball icon tile is primary (green); its colour is the reference for "green".
+    const green = await page
+      .getByTestId('timeline-event-g2')
+      .locator('svg')
+      .first()
+      .evaluate((svg) => getComputedStyle(svg.parentElement!).color);
+    console.log(`[TEST-003] ${SHOT}: ${JSON.stringify({ ...minutes, goalIconTile: green })}`);
 
     expect(minutes.g1.text).toBe("2'");
     expect(minutes.g2.text).toBe("15'");
@@ -88,5 +96,6 @@ test.describe('spec-timeline-minute-light-colour TEST-003 — every minute is li
     expect(minutes.g1.color).toBe(minutes.c1.color);
     expect(minutes.g2.color).toBe(minutes.c1.color);
     expect(minutes.s1.color).toBe(minutes.c1.color);
+    expect(minutes.c1.color).toBe(green);
   });
 });
