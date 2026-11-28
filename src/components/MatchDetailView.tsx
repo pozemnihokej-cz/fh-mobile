@@ -45,7 +45,7 @@ import {
 import { PlayerDetailModal } from './PlayerDetailModal';
 import { formatPositionCz } from '../lib/playerUtils';
 import { resolveDisplayTeamNames } from '../lib/teamNames';
-import { completedFanScore, isFanSingleTeam } from '../lib/matchResult';
+import { completedFanScore, isFanSingleTeam, liveFanScore } from '../lib/matchResult';
 import { buildMatchListHref, googleMapsDirectionsHref } from '../lib/matchListDeepLink';
 import { useTenantContext } from '../routes/TenantContext';
 import { childReadMatchId } from '../lib/matchReadId';
@@ -506,7 +506,7 @@ export function MatchDetailView({
   return (
     <Box>
       {/* Detail scoreboard header — compact OM-style banner */}
-      <Box sx={{ mb: 2.5 }}>
+      <Box sx={{ mb: 2.5 }} data-testid="match-detail-scoreboard">
         <MatchScoreboard
           compact
           live={isLive}
@@ -516,12 +516,15 @@ export function MatchDetailView({
           // spec-match-display-no-score-one-team-shootout D5/D6: a completed
           // match shows its final score (the live-derived timeline for an OM-run
           // match, the mirrored result otherwise) with the shootout line, or the
-          // played label instead of a made-up 0 : 0.
+          // played label instead of a made-up 0 : 0. A live / in-progress match
+          // shows liveFanScore — the header's value, every recorded goal — never
+          // the clock-bounded recount, which hid a goal stamped ahead of the
+          // clock (spec-fan-live-score-header-card-mismatch).
           score={
             match.status === 'completed' && !isLive
               ? completedFanScore(match, { home: derivedState.score.home, away: derivedState.score.away })
               : isLive || (match.status === 'in_progress' && !isLive)
-                ? { home: derivedState.score.home, away: derivedState.score.away }
+                ? liveFanScore(match)
                 : null
           }
           placeholder={match.status === 'completed' && !isLive ? t('matchResult.played') : undefined}

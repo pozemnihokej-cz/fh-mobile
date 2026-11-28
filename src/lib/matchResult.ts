@@ -22,6 +22,24 @@ export function completedFanScore(
   return completedReadModelScore(match, timeline);
 }
 
+/**
+ * spec-fan-live-score-header-card-mismatch D1 — the ONE score a live or
+ * in-progress match shows on the fan match detail: the sticky header and the
+ * scoreboard card both render it, so they cannot disagree.
+ *
+ * `matches.getBySupabaseId` counts every recorded goal row of the timeline
+ * (no clock). The card used to recount with the playing clock
+ * (`deriveTimelineState`), which hides a goal whose stored time is ahead of
+ * the clock — PROD match 80129 (2026-11-28): a goal stamped at 346.98 s while the
+ * clock read 296–325 s, header 2 : 2, card 1 : 2 for six minutes.
+ */
+export function liveFanScore(match: {
+  homeScore?: number | null;
+  awayScore?: number | null;
+}): { home: number; away: number } {
+  return { home: match.homeScore ?? 0, away: match.awayScore ?? 0 };
+}
+
 /** A one-team event (the same team row on both sides) is shown as that team alone. */
 export function isFanSingleTeam(match: Pick<FanResultFields, 'homeTeamId' | 'awayTeamId'>): boolean {
   return isSingleTeamMatch(match.homeTeamId, match.awayTeamId);
