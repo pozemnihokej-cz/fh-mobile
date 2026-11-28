@@ -44,6 +44,10 @@ export interface ConvexReplayOptions {
   list?: unknown[];
   /** Value replayed for `functions/matches:getBySupabaseId` (match detail). */
   detail?: unknown;
+  /** Value replayed for `functions/matchTimeline:listEvents` (spec-fan-live-score-header-card-mismatch). */
+  timeline?: unknown[];
+  /** Value replayed for `functions/matchControl:getLiveState` (spec-fan-live-score-header-card-mismatch). */
+  liveState?: unknown;
   /**
    * Optional gate awaited before each reply is sent — lets a test assert the
    * loading skeleton is on screen BEFORE the data lands (Spec-AC-01).
@@ -116,6 +120,10 @@ export async function installConvexReplay(page: Page, opts: ConvexReplayOptions)
           value = opts.list;
         } else if (/matches[:.]getBySupabaseId/.test(mod.udfPath) && opts.detail !== undefined) {
           value = opts.detail;
+        } else if (/matchTimeline[:.]listEvents/.test(mod.udfPath) && opts.timeline !== undefined) {
+          value = opts.timeline;
+        } else if (/matchControl[:.]getLiveState/.test(mod.udfPath) && opts.liveState !== undefined) {
+          value = opts.liveState;
         } else {
           continue; // leave timeline/clock/etc. queries pending (they render empty)
         }

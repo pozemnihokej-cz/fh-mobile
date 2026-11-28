@@ -10,7 +10,7 @@ import { useFanPreferences } from '../lib/useFanPreferences';
 import { resolveDisplayTeamNames } from '../lib/teamNames';
 import { useTenantContext } from './TenantContext';
 import { childReadMatchId } from '../lib/matchReadId';
-import { completedFanScore, isFanSingleTeam } from '../lib/matchResult';
+import { completedFanScore, isFanSingleTeam, liveFanScore } from '../lib/matchResult';
 import { useTranslation } from '@fh/i18n';
 
 /**
@@ -73,15 +73,17 @@ export default function MatchDetailPage(): JSX.Element {
   // spec-match-display-no-score-one-team-shootout D5/D6: a completed match shows
   // its final score (timeline for an OM-run match, the mirrored result
   // otherwise) with the shootout marker, or the played label when it has no
-  // result — never a made-up "0 : 0". Live / in-progress keep the timeline.
+  // result — never a made-up "0 : 0". Live / in-progress show liveFanScore, the
+  // same value the scoreboard card renders (spec-fan-live-score-header-card-mismatch).
   const isFinal = match ? match.status === 'completed' && !isLive : false;
   const finalScore = match && isFinal ? completedFanScore(match) : null;
   const singleTeam = match ? isFanSingleTeam(match) : false;
+  const liveScore = liveFanScore(match ?? {});
   const scoreStr = isFinal
     ? finalScore
       ? `${finalScore.home} : ${finalScore.away}${finalScore.shootout ? ` ${t('matchResult.shootoutShort')}` : ''}`
       : t('matchResult.played')
-    : `${match?.homeScore ?? 0} : ${match?.awayScore ?? 0}`;
+    : `${liveScore.home} : ${liveScore.away}`;
 
   const headerTitle = match ? (
     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, minWidth: 0 }}>
